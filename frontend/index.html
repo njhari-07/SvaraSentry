@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="SvaraSentry realtime voice authenticity monitor" />
+    <meta name="theme-color" content="#07110f" />
+    <title>SvaraSentry · Voice authenticity monitor</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+    <main class="shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="SvaraSentry home">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span>Svara<span>Sentry</span></span>
+        </a>
+        <div class="topbar-actions">
+          <label class="session-field">
+            <span>SESSION</span>
+            <input id="session" value="demo-1" maxlength="80" aria-label="Session ID" />
+          </label>
+          <span id="connection" class="connection offline"><i></i>Connecting</span>
+        </div>
+      </header>
+
+      <section id="mode-banner" class="mode-banner" hidden>
+        <span class="mode-icon">D</span>
+        <p><strong>Integration mode</strong> The live pipeline is operational, but scores are simulated until a trained checkpoint is loaded.</p>
+      </section>
+
+      <section class="decision-panel" aria-labelledby="decision-title">
+        <div class="decision-copy">
+          <div class="section-kicker"><span id="live-dot"></span> LIVE ANALYSIS</div>
+          <h1 id="decision-title">Ready to monitor</h1>
+          <p id="decision-guidance">Choose a microphone or audio file to begin a session.</p>
+          <div class="source-actions">
+            <button id="mic-button" class="button primary" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Z"/><path d="M19 11v1a7 7 0 0 1-14 0v-1M12 19v3M8 22h8"/></svg>
+              <span>Start microphone</span>
+            </button>
+            <label class="button secondary" for="audio-file">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0-12 4 4m-4-4L8 7"/><path d="M5 14v5h14v-5"/></svg>
+              <span>Analyze a file</span>
+              <input id="audio-file" type="file" accept="audio/*,.wav,.flac,.mp3,.m4a,.ogg" />
+            </label>
+            <button id="stop-button" class="button danger" type="button" hidden>Stop stream</button>
+          </div>
+          <p id="source-status" class="source-status" role="status">Audio stays in this session and is not saved by the server.</p>
+        </div>
+
+        <div class="score-wrap">
+          <div id="gauge" class="gauge" style="--risk: 0">
+            <div class="gauge-inner">
+              <strong id="risk-value">—</strong><span id="risk-unit">%</span>
+              <small>CLONE RISK</small>
+            </div>
+          </div>
+          <span id="risk-badge" class="risk-badge neutral">Waiting</span>
+        </div>
+      </section>
+
+      <section class="metric-grid" aria-label="Session metrics">
+        <article class="metric">
+          <span class="metric-icon model"><svg viewBox="0 0 24 24"><path d="M8 6h8M8 18h8M6 8v8M18 8v8M9 9h6v6H9z"/></svg></span>
+          <div><small>DETECTION ENGINE</small><strong id="model-value">Loading…</strong><span id="model-detail">Checking runtime</span></div>
+        </article>
+        <article class="metric">
+          <span class="metric-icon signal"><svg viewBox="0 0 24 24"><path d="M4 13v-2m4 6V7m4 13V4m4 13V7m4 6v-2"/></svg></span>
+          <div><small>SIGNAL QUALITY</small><strong id="signal-value">No signal</strong><span id="signal-detail">— dBFS</span></div>
+        </article>
+        <article class="metric">
+          <span class="metric-icon speed"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="m12 12 4-3M12 4v2M4 12h2M18 12h2"/></svg></span>
+          <div><small>PROCESSING</small><strong id="latency-value">— ms</strong><span id="chunk-detail">0 windows analyzed</span></div>
+        </article>
+        <article class="metric identity-metric">
+          <span class="metric-icon identity"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M6 20v-2a6 6 0 0 1 12 0v2M18 5l1 1 2-2"/></svg></span>
+          <div><small>VOICE IDENTITY</small><strong id="identity-value">Not enrolled</strong><span id="identity-detail">Optional second signal</span></div>
+          <button id="enroll-open" class="text-button" type="button">Enroll</button>
+        </article>
+      </section>
+
+      <section class="analysis-grid">
+        <article class="panel spectrogram-panel">
+          <div class="panel-head">
+            <div><span class="panel-kicker">ACOUSTIC VIEW</span><h2>Spectrogram</h2></div>
+            <div class="frequency-legend"><span></span> Voice energy <i></i> Anomaly focus</div>
+          </div>
+          <div class="spectrogram-stage">
+            <div class="frequency-axis"><span>8 kHz</span><span>4 kHz</span><span>0 Hz</span></div>
+            <div class="spectrogram-frame">
+              <img id="spectrogram" alt="Live audio spectrogram" />
+              <div id="spectrogram-empty" class="spectrogram-empty"><span class="empty-wave">▂▅▃▇▂▆▃▅</span><p>Spectrogram appears after the first 3-second window</p></div>
+              <div id="attention-region" class="attention-region" hidden></div>
+            </div>
+          </div>
+          <div class="time-axis"><span>−3.0s</span><span>−2.0s</span><span>−1.0s</span><span>Now</span></div>
+        </article>
+
+        <article class="panel timeline-panel">
+          <div class="panel-head">
+            <div><span class="panel-kicker">SESSION TREND</span><h2>Risk timeline</h2></div>
+            <span id="window-count" class="compact-stat">0 windows</span>
+          </div>
+          <div class="chart-wrap"><canvas id="timeline" aria-label="Risk score timeline"></canvas></div>
+          <div class="threshold-key"><span><i class="safe"></i>Low</span><span><i class="caution"></i>Caution 55%</span><span><i class="high"></i>High 75%</span></div>
+        </article>
+      </section>
+
+      <section class="bottom-grid">
+        <article class="panel event-panel">
+          <div class="panel-head">
+            <div><span class="panel-kicker">AUDIT TRAIL</span><h2>Session events</h2></div>
+            <button id="reset-button" class="text-button" type="button">Reset session</button>
+          </div>
+          <ol id="event-list" class="event-list">
+            <li class="empty-event"><span></span><div><strong>No events yet</strong><p>Risk transitions and identity checks will appear here.</p></div></li>
+          </ol>
+        </article>
+        <aside class="response-card">
+          <span class="response-icon">✓</span>
+          <div><span class="panel-kicker">RECOMMENDED RESPONSE</span><h2 id="response-title">No action needed</h2><p id="response-copy">Begin monitoring when a call starts. SvaraSentry will show a clear action if risk rises.</p></div>
+        </aside>
+      </section>
+
+      <footer><span>SvaraSentry</span><span id="footer-runtime">16 kHz · 3s window · 1s stride</span><a href="/phone">Phone relay</a><a href="/docs" target="_blank" rel="noreferrer">API docs</a></footer>
+    </main>
+
+    <dialog id="enroll-dialog">
+      <form method="dialog" class="dialog-card">
+        <button class="dialog-close" value="cancel" aria-label="Close">×</button>
+        <span class="dialog-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M6 20v-2a6 6 0 0 1 12 0v2"/></svg></span>
+        <h2>Enroll a trusted voice</h2>
+        <p>Upload at least 2 seconds of clean speech. The reference stays in server memory for this session and is never written to disk.</p>
+        <label class="dropzone" for="enrollment-file"><strong>Choose reference audio</strong><span>WAV or FLAC · up to 25 MB</span><input id="enrollment-file" type="file" accept="audio/wav,audio/flac,.wav,.flac" /></label>
+        <p id="enroll-status" class="dialog-status" role="status"></p>
+        <div class="dialog-actions"><button id="remove-enrollment" class="button ghost" type="button">Remove enrollment</button><button class="button secondary" value="cancel">Done</button></div>
+      </form>
+    </dialog>
+
+    <script src="/static/dashboard.js"></script>
+  </body>
+</html>

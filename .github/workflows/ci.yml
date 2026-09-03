@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build development image
+        run: docker build --target development --tag svarasentry-ci .
+      - name: Test
+        run: docker run --rm svarasentry-ci python -m pytest
+      - name: Lint
+        run: docker run --rm svarasentry-ci ruff check backend data_pipeline training tests
+

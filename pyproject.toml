@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "svarasentry"
+version = "0.2.0"
+description = "Real-time AI voice clone risk detector"
+requires-python = ">=3.11,<3.15"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn[standard]>=0.34,<1",
+  "numpy>=2.0,<3",
+  "soundfile>=0.13,<1",
+  "pillow>=11,<13",
+  "python-multipart>=0.0.20,<1",
+]
+
+[project.optional-dependencies]
+ml = [
+  "torch>=2.10,<3",
+  "torchaudio>=2.10,<3",
+  "transformers>=4.49,<5",
+  "scikit-learn>=1.6,<2",
+]
+dev = [
+  "httpx>=0.28,<1",
+  "pytest>=8.3,<9",
+  "ruff>=0.11,<1",
+]
+
+[tool.setuptools.packages.find]
+include = ["backend*", "data_pipeline*", "training*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#06100e" />
+    <title>SvaraSentry · Phone relay</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/static/phone_relay.css" />
+  </head>
+  <body>
+    <main>
+      <header><span class="mark"><i></i><i></i><i></i></span><strong>Svara<span>Sentry</span></strong><small>PHONE RELAY</small></header>
+      <section class="relay-card">
+        <div id="orb" class="orb"><span class="mic-icon">●</span><i></i><i></i><i></i></div>
+        <p id="relay-state" class="relay-state">Ready to relay</p>
+        <p id="relay-copy" class="relay-copy">Keep this page open during the call. Audio is analyzed live and is not saved.</p>
+        <label><span>Dashboard session</span><input id="relay-session" value="demo-1" maxlength="80" autocomplete="off" /></label>
+        <button id="relay-button" type="button">Start microphone relay</button>
+        <p id="secure-note" class="secure-note" hidden>Microphone access on a phone requires HTTPS. Open this page through your secure demo URL.</p>
+      </section>
+      <section class="steps"><span>1</span><p><strong>Match the session ID</strong>Use the same ID shown on the dashboard.</p><span>2</span><p><strong>Start the relay</strong>Allow microphone access when your browser asks.</p><span>3</span><p><strong>Watch the dashboard</strong>Scores update there about once per second.</p></section>
+      <a class="dashboard-link" href="/">Open dashboard</a>
+    </main>
+    <script src="/static/phone_relay.js"></script>
+  </body>
+</html>
+

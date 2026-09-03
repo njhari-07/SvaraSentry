@@ -1,0 +1,33 @@
+# Local environments and secrets
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+
+# Python caches, test output, and build artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Generated/private datasets and model artifacts
+data/raw/
+data/team_recordings/
+data/sarvam_generated/
+data/dataset_manifest.csv
+training/checkpoints/*
+!training/checkpoints/.gitkeep

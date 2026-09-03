@@ -1,0 +1,43 @@
+services:
+  app:
+    build:
+      context: .
+      target: development
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app/backend
+      - ./data_pipeline:/app/data_pipeline
+      - ./frontend:/app/frontend
+      - ./tests:/app/tests
+      - ./data:/app/data
+      - ./training/checkpoints:/app/training/checkpoints
+    environment:
+      SVARASENTRY_MODEL_MODE: ${SVARASENTRY_MODEL_MODE:-baseline}
+      SVARASENTRY_CHECKPOINT: ${SVARASENTRY_CHECKPOINT:-/app/training/checkpoints/model.pt}
+      SVARASENTRY_SESSION_TTL_SECONDS: ${SVARASENTRY_SESSION_TTL_SECONDS:-3600}
+      SVARASENTRY_MAX_SESSIONS: ${SVARASENTRY_MAX_SESSIONS:-200}
+      SVARASENTRY_CAUTION_THRESHOLD: ${SVARASENTRY_CAUTION_THRESHOLD:-0.55}
+      SVARASENTRY_HIGH_THRESHOLD: ${SVARASENTRY_HIGH_THRESHOLD:-0.75}
+    init: true
+    restart: unless-stopped
+
+  app-ml:
+    profiles: ["ml"]
+    build:
+      context: .
+      target: ml-runtime
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./training/checkpoints:/app/training/checkpoints:ro
+    environment:
+      SVARASENTRY_MODEL_MODE: checkpoint
+      SVARASENTRY_CHECKPOINT: ${SVARASENTRY_CHECKPOINT:-/app/training/checkpoints/model.pt}
+      SVARASENTRY_SESSION_TTL_SECONDS: ${SVARASENTRY_SESSION_TTL_SECONDS:-3600}
+      SVARASENTRY_MAX_SESSIONS: ${SVARASENTRY_MAX_SESSIONS:-200}
+      SVARASENTRY_CAUTION_THRESHOLD: ${SVARASENTRY_CAUTION_THRESHOLD:-0.55}
+      SVARASENTRY_HIGH_THRESHOLD: ${SVARASENTRY_HIGH_THRESHOLD:-0.75}
+    init: true
+    restart: unless-stopped

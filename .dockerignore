@@ -1,0 +1,12 @@
+.git
+.venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+.env
+data/raw
+data/team_recordings
+data/sarvam_generated
+training/checkpoints/*
+
