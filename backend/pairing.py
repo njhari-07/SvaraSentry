@@ -2,8 +2,7 @@
 
 import secrets
 import time
-from dataclasses import dataclass, field
-from typing import Dict, Optional
+from dataclasses import dataclass
 
 
 @dataclass
@@ -19,7 +18,7 @@ class PairingManager:
 
     def __init__(self, ttl_seconds: int = 120):
         self.ttl_seconds = ttl_seconds
-        self._tokens: Dict[str, PairingToken] = {}
+        self._tokens: dict[str, PairingToken] = {}
 
     def generate(self, session_id: str) -> str:
         self._cleanup()
@@ -33,14 +32,14 @@ class PairingManager:
     def validate_and_consume(self, token_str: str) -> str:
         """Validates a pairing token and consumes it. Returns the session_id or raises ValueError."""
         self._cleanup()
-        
+
         token = self._tokens.get(token_str)
         if not token:
             raise ValueError("Invalid or expired pairing token")
-        
+
         if token.used:
             raise ValueError("Pairing token has already been used")
-            
+
         if time.time() > token.expires_at:
             raise ValueError("Pairing token has expired")
 
@@ -59,7 +58,9 @@ class PairingManager:
         for k in expired:
             self._tokens.pop(k, None)
 
+
 from backend.config import Settings
+
 settings = Settings.from_env()
 
 # Global singleton

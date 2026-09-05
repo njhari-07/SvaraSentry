@@ -2,4 +2,4 @@ torch>=2.10,<3
 torchaudio>=2.10,<3
 transformers>=4.49,<5
 scikit-learn>=1.6,<2
-
+imageio-ffmpeg>=0.6,<1

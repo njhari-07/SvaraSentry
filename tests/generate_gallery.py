@@ -24,13 +24,11 @@ Fixtures generated (matches the spec gallery requirement)
 from __future__ import annotations
 
 import base64
-import io
 import sys
 from math import pi
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
 
 # Ensure the project root is on the path when run directly.
 ROOT = Path(__file__).resolve().parents[1]
@@ -66,7 +64,9 @@ def _save(name: str, chunk: AudioChunk) -> None:
     )
 
 
-def bandlimited_noise(lo_hz: float, hi_hz: float, amplitude: float = 0.3, seed: int = 0) -> np.ndarray:
+def bandlimited_noise(
+    lo_hz: float, hi_hz: float, amplitude: float = 0.3, seed: int = 0
+) -> np.ndarray:
     rng = np.random.default_rng(seed)
     noise = rng.standard_normal(N).astype(np.float32)
     # Simple brick-wall FFT filter
@@ -84,46 +84,37 @@ def main() -> None:
     print(f"Writing gallery to {OUT_DIR}\n")
 
     t = np.arange(N, dtype=np.float32) / RATE
+    music_like = (
+        0.25 * np.sin(2 * pi * 220 * t)
+        + 0.20 * np.sin(2 * pi * 277 * t)
+        + 0.18 * np.sin(2 * pi * 330 * t)
+        + 0.15 * np.sin(2 * pi * 440 * t)
+        + 0.10 * np.sin(2 * pi * 880 * t)
+    ).astype(np.float32)
 
     fixtures: list[tuple[str, np.ndarray]] = [
         # (name, samples)
-        ("silence",
-         np.zeros(N, dtype=np.float32)),
-
-        ("quiet_hum",
-         (0.02 * np.sin(2 * pi * 60 * t)).astype(np.float32)),
-
-        ("quiet_speech",
-         # Speech-band noise at low amplitude (~-52 dBFS) — simulates a distant or quiet speaker
-         bandlimited_noise(300, 3000, amplitude=0.0025, seed=3)),
-
-        ("voiced_1khz",
-         (0.4 * np.sin(2 * pi * 1000 * t)).astype(np.float32)),
-
-        ("fricative_noise",
-         bandlimited_noise(3000, 8000, amplitude=0.25)),
-
-        ("two_tone_440_1760",
-         (0.3 * np.sin(2 * pi * 440 * t) + 0.3 * np.sin(2 * pi * 1760 * t)).astype(np.float32)),
-
-        ("speech_band_noise",
-         bandlimited_noise(300, 3000, amplitude=0.35)),
-
-        ("music_like",
-         # Harmonic chord: root + 3rd + 5th + octave (simulates musical content)
-         (lambda t: (
-             0.25 * np.sin(2 * pi * 220 * t) +   # A3 root
-             0.20 * np.sin(2 * pi * 277 * t) +   # C#4 major third
-             0.18 * np.sin(2 * pi * 330 * t) +   # E4 fifth
-             0.15 * np.sin(2 * pi * 440 * t) +   # A4 octave
-             0.10 * np.sin(2 * pi * 880 * t)     # A5 second octave
-         ).astype(np.float32))(t)),
-
-        ("high_energy_broadband",
-         bandlimited_noise(0, 8000, amplitude=0.7, seed=7)),
-
-        ("clipping",
-         np.clip(2.0 * np.sin(2 * pi * 440 * t), -1.0, 1.0).astype(np.float32)),
+        ("silence", np.zeros(N, dtype=np.float32)),
+        ("quiet_hum", (0.02 * np.sin(2 * pi * 60 * t)).astype(np.float32)),
+        (
+            "quiet_speech",
+            # Speech-band noise at low amplitude (~-52 dBFS) — simulates a distant or quiet speaker
+            bandlimited_noise(300, 3000, amplitude=0.0025, seed=3),
+        ),
+        ("voiced_1khz", (0.4 * np.sin(2 * pi * 1000 * t)).astype(np.float32)),
+        ("fricative_noise", bandlimited_noise(3000, 8000, amplitude=0.25)),
+        (
+            "two_tone_440_1760",
+            (0.3 * np.sin(2 * pi * 440 * t) + 0.3 * np.sin(2 * pi * 1760 * t)).astype(np.float32),
+        ),
+        ("speech_band_noise", bandlimited_noise(300, 3000, amplitude=0.35)),
+        (
+            "music_like",
+            # Harmonic chord: root + 3rd + 5th + octave (simulates musical content)
+            music_like,
+        ),
+        ("high_energy_broadband", bandlimited_noise(0, 8000, amplitude=0.7, seed=7)),
+        ("clipping", np.clip(2.0 * np.sin(2 * pi * 440 * t), -1.0, 1.0).astype(np.float32)),
     ]
 
     for name, samples in fixtures:

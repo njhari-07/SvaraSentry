@@ -5,10 +5,8 @@ Reviewed on 5 September 2026. Incoming commit: `c7d5878` —
 
 ## Is augmentation ready?
 
-**The core augmentation module is implemented, integrated, and tested.**
-The remaining setup on this computer is to supply the noise and room-response
-assets required by the default configuration, or disable those two effects.
-Codec compression augmentation is explicitly deferred.
+**The augmentation module is implemented, integrated, and tested.** It includes
+OpenSLR SLR28 noise/room assets and a real in-memory Opus/VoIP codec round-trip.
 
 This means the code is ready to use, but we have not yet measured whether training
 with it improves deepfake detection. That requires a controlled training experiment.
@@ -77,7 +75,7 @@ implementations.
 | Resampling | Bandwidth/conversion changes | Intermediate sample rates, then back to 16 kHz; probability 0.25 |
 | Speed | Slightly faster/slower speech, also changing pitch | Factor 0.95–1.05; probability 0.20 |
 | Saturation | Mild overloaded-microphone distortion | Drive 1.1–1.8; probability 0.10 |
-| Codec compression | MP3/Opus/AAC round trip | Deferred; leave disabled |
+| Codec compression | Opus/VoIP encode-decode artifacts | 12, 16, or 24 kbps; probability 0.20 |
 
 There is a top-level 20% chance to skip random effects. Otherwise effects are
 sampled and capped at three per example. These probabilities are selection
@@ -99,7 +97,7 @@ Even a sample with no effects can be cropped to fit the model window.
 The standard dataset output contains waveform, label, sample ID, and manifest
 metadata. It does not automatically log the full transform trace for every batch.
 
-## Setup still needed on this machine
+## Local asset setup
 
 The default YAML points to:
 
@@ -108,16 +106,10 @@ data/augmentation_assets/noise/
 data/augmentation_assets/rir/
 ```
 
-Those assets were not present during this review. The contributor's provenance
-document describes their local installation; Git ignores the asset collection,
-so pulling the code does not download it onto this computer.
-
-Before using the default augmentation configuration, provide the documented
-assets. Alternatively, use a separate configuration with noise and RIR
-probabilities set to zero while retaining the effects that need no external files.
-An explicitly configured enabled asset directory with no valid audio raises an
-error. The tiny committed fixtures are for automated tests, not a realistic
-training noise collection.
+The SLR28 installer places assets at these paths on the training machine. Git
+ignores the collection, so every training machine must install it locally.
+An explicitly configured directory with no valid audio raises an error. The
+tiny committed fixtures are for automated tests, not a realistic collection.
 
 ## Integration fixes made after pulling
 

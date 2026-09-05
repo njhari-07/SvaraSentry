@@ -36,7 +36,7 @@ from __future__ import annotations
 import base64
 import io
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
@@ -49,8 +49,8 @@ from backend.streaming import AudioChunk
 # ---------------------------------------------------------------------------
 
 SAMPLE_RATE: int = 16_000
-FRAME_SIZE: int = 512          # 32 ms at 16 kHz
-HOP_SIZE: int = 160            # 10 ms at 16 kHz
+FRAME_SIZE: int = 512  # 32 ms at 16 kHz
+HOP_SIZE: int = 160  # 10 ms at 16 kHz
 N_MEL: int = 128
 F_MIN: float = 0.0
 F_MAX: float = 8_000.0
@@ -62,12 +62,12 @@ WINDOW_SECONDS: float = 3.0
 # Chosen to be readable under deuteranopia and protanopia simulations.
 PALETTE_STOPS: np.ndarray = np.array(
     [
-        [5, 11, 17],      # dark navy   (silence / noise floor)
-        [11, 42, 55],     # deep teal
-        [16, 103, 107],   # teal
-        [77, 215, 164],   # mint-green
+        [5, 11, 17],  # dark navy   (silence / noise floor)
+        [11, 42, 55],  # deep teal
+        [16, 103, 107],  # teal
+        [77, 215, 164],  # mint-green
         [246, 211, 108],  # amber       (mid-high energy)
-        [255, 114, 92],   # coral-red   (peak energy)
+        [255, 114, 92],  # coral-red   (peak energy)
     ],
     dtype=np.float32,
 )
@@ -78,6 +78,7 @@ ScaleType = Literal["mel", "linear"]
 # ---------------------------------------------------------------------------
 # Dataclasses
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True, slots=True)
 class SignalMetrics:
@@ -90,6 +91,7 @@ class SignalMetrics:
 @dataclass(frozen=True, slots=True)
 class SpectrogramConfig:
     """Rendering parameters.  Frozen so renderer output is deterministic."""
+
     scale: ScaleType = "mel"
     n_mel: int = N_MEL
     frame_size: int = FRAME_SIZE
@@ -104,6 +106,7 @@ class SpectrogramConfig:
 @dataclass(frozen=True, slots=True)
 class SpectrogramResult:
     """Structured output from the renderer."""
+
     image_png_b64: str
     scale: ScaleType
     min_frequency_hz: float
@@ -131,14 +134,15 @@ class AcousticFeatures:
     These values characterise the audio signal; they are not indicators of
     deepfake content and must not be interpreted as such.
     """
+
     rms_dbfs: float
     peak_dbfs: float
     clipping_percent: float
     spectral_centroid_hz: float
-    spectral_rolloff_hz: float   # frequency below which 85 % of energy sits
-    spectral_flatness: float     # 0 = pure tone, 1 = white noise
+    spectral_rolloff_hz: float  # frequency below which 85 % of energy sits
+    spectral_flatness: float  # 0 = pure tone, 1 = white noise
     dominant_band_hz: tuple[int, int]
-    signal_quality: str          # silence | quiet | usable | clipping
+    signal_quality: str  # silence | quiet | usable | clipping
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -162,6 +166,7 @@ class RenderOutput:
 # ---------------------------------------------------------------------------
 # Low-level helpers (public API — do not change signatures)
 # ---------------------------------------------------------------------------
+
 
 def pcm_float(chunk: AudioChunk) -> np.ndarray:
     """Convert a raw PCM AudioChunk to float32 samples in [-1, 1]."""
@@ -206,6 +211,7 @@ def cosine_similarity(left: np.ndarray, right: np.ndarray) -> float:
 # ---------------------------------------------------------------------------
 # Mel filter bank (numpy implementation — no librosa dependency)
 # ---------------------------------------------------------------------------
+
 
 def _hz_to_mel(hz: float) -> float:
     """Convert Hz to mel scale (HTK formula)."""
@@ -273,9 +279,7 @@ def _get_filterbank(
 ) -> np.ndarray:
     key = (n_mel, frame_size, sample_rate, f_min, f_max)
     if key not in _FILTERBANK_CACHE:
-        _FILTERBANK_CACHE[key] = _build_mel_filterbank(
-            n_mel, frame_size, sample_rate, f_min, f_max
-        )
+        _FILTERBANK_CACHE[key] = _build_mel_filterbank(n_mel, frame_size, sample_rate, f_min, f_max)
     return _FILTERBANK_CACHE[key]
 
 
@@ -295,7 +299,7 @@ _BAND_LABELS: list[str] = ["sub-bass", "speech", "presence", "brilliance"]
 
 def _compute_acoustic_features(
     samples: np.ndarray,
-    power_spectrum: np.ndarray,   # shape (n_fft_bins, n_frames), non-negative
+    power_spectrum: np.ndarray,  # shape (n_fft_bins, n_frames), non-negative
     sample_rate: int,
     config: SpectrogramConfig,
 ) -> AcousticFeatures:
@@ -316,9 +320,7 @@ def _compute_acoustic_features(
     else:
         rms = float(np.sqrt(np.mean(np.square(samples))))
         peak = float(np.max(np.abs(samples)))
-        clipping_pct = round(
-            100.0 * float(np.mean(np.abs(samples) >= 0.99)), 3
-        )
+        clipping_pct = round(100.0 * float(np.mean(np.abs(samples) >= 0.99)), 3)
 
     rms_dbfs = round(max(-96.0, 20 * math.log10(max(rms, 1e-8))), 1)
     peak_dbfs = round(max(-96.0, 20 * math.log10(max(peak, 1e-8))), 1)
@@ -391,6 +393,7 @@ def _compute_acoustic_features(
 # Colour palette
 # ---------------------------------------------------------------------------
 
+
 def _apply_palette(values: np.ndarray) -> np.ndarray:
     """Map float values in [0, 1] to RGB uint8 via PALETTE_STOPS.
 
@@ -412,6 +415,7 @@ def _apply_palette(values: np.ndarray) -> np.ndarray:
 # ---------------------------------------------------------------------------
 # Main renderer
 # ---------------------------------------------------------------------------
+
 
 class SpectrogramRenderer:
     """Render spectrogram images and compute acoustic features.
@@ -449,9 +453,7 @@ class SpectrogramRenderer:
         samples = _safe_samples(samples, cfg.frame_size)
 
         power_spectrum = _compute_stft_power(samples, cfg.frame_size, cfg.hop_size)
-        features = _compute_acoustic_features(
-            samples, power_spectrum, SAMPLE_RATE, cfg
-        )
+        features = _compute_acoustic_features(samples, power_spectrum, SAMPLE_RATE, cfg)
 
         if cfg.scale == "mel":
             display_matrix = _apply_mel_bank(power_spectrum, cfg, SAMPLE_RATE)
@@ -498,6 +500,7 @@ class SpectrogramRenderer:
 # Internal rendering helpers
 # ---------------------------------------------------------------------------
 
+
 def _safe_samples(samples: np.ndarray, min_size: int) -> np.ndarray:
     """Sanitise samples: replace NaN/Inf and pad to minimum length."""
     samples = np.nan_to_num(samples, nan=0.0, posinf=0.0, neginf=0.0)
@@ -506,9 +509,7 @@ def _safe_samples(samples: np.ndarray, min_size: int) -> np.ndarray:
     return samples
 
 
-def _compute_stft_power(
-    samples: np.ndarray, frame_size: int, hop_size: int
-) -> np.ndarray:
+def _compute_stft_power(samples: np.ndarray, frame_size: int, hop_size: int) -> np.ndarray:
     """Compute STFT power spectrum.
 
     Returns
@@ -522,18 +523,14 @@ def _compute_stft_power(
     return power.T  # (n_fft_bins, n_frames)
 
 
-def _apply_mel_bank(
-    power: np.ndarray, cfg: SpectrogramConfig, sample_rate: int
-) -> np.ndarray:
+def _apply_mel_bank(power: np.ndarray, cfg: SpectrogramConfig, sample_rate: int) -> np.ndarray:
     """Project linear STFT power onto mel bins.
 
     Returns
     -------
     mel_power: shape (n_mel, n_frames), linear scale.
     """
-    filterbank = _get_filterbank(
-        cfg.n_mel, cfg.frame_size, sample_rate, cfg.f_min, cfg.f_max
-    )
+    filterbank = _get_filterbank(cfg.n_mel, cfg.frame_size, sample_rate, cfg.f_min, cfg.f_max)
     return filterbank @ power  # (n_mel, n_frames)
 
 
@@ -575,9 +572,7 @@ def _render_png(
     normalised = _normalize_db(matrix, cfg.floor_db, cfg.ceiling_db)
     # Flip so low frequencies are at the bottom of the image
     rgb = _apply_palette(normalised[::-1])
-    image = Image.fromarray(rgb, mode="RGB").resize(
-        (width, height), Image.Resampling.BILINEAR
-    )
+    image = Image.fromarray(rgb, mode="RGB").resize((width, height), Image.Resampling.BILINEAR)
     buf = io.BytesIO()
     image.save(buf, format="PNG", optimize=True)
     return base64.b64encode(buf.getvalue()).decode("ascii")

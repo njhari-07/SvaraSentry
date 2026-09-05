@@ -36,7 +36,7 @@ credentials, access, or confidential information.
 | Audio processing | 16 kHz mono PCM16, NumPy, SoundFile/libsndfile, windowing, resampling, and signal-quality analysis |
 | Deepfake-recognition model | PyTorch, Hugging Face Transformers, Wav2Vec2/XLSR encoder, attentive pooling, and binary classification head |
 | Training and evaluation | CUDA-enabled PyTorch DataLoader, scikit-learn metrics, ROC-AUC, PR-AUC, EER, and sliced evaluation |
-| Audio augmentation | Custom seeded PyTorch pipeline for gain, noise, reverberation, filtering, clipping, speed, and telephony simulation |
+| Audio augmentation | Custom seeded PyTorch pipeline with OpenSLR SLR28 noise/RIR assets, gain, filtering, clipping, speed changes, and real Opus/VoIP codec round-trips through FFmpeg |
 | Dataset and manifests | ASVspoof 2019 LA protocols, project and Indian-language speech sources, CSV manifests, and speaker-aware split validation |
 | Risk and identity layer | Probability smoothing, configurable alert thresholds, learned voice embeddings, and cosine similarity |
 | Explainability and visualization | Model-attention regions, NumPy STFT spectrograms, Pillow image rendering, and live risk timelines |

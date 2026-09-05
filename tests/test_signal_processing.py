@@ -42,7 +42,7 @@ import os
 import time
 import unittest
 import wave
-from math import pi, sin
+from math import pi
 
 import numpy as np
 
@@ -53,9 +53,7 @@ from backend.spectrogram import (
     SpectrogramConfig,
     SpectrogramRenderer,
     SpectrogramResult,
-    _compute_acoustic_features,
     _compute_stft_power,
-    _safe_samples,
     cosine_similarity,
     voice_embedding,
 )
@@ -69,13 +67,21 @@ WINDOW_S = 3.0
 # Fixture helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_chunk(samples: np.ndarray, rate: int = RATE) -> AudioChunk:
-    pcm = (np.clip(samples, -1.0, 1.0) * 32767).astype("<i2").tobytes()
+    finite = np.nan_to_num(samples, nan=0.0, posinf=1.0, neginf=-1.0)
+    pcm = (np.clip(finite, -1.0, 1.0) * 32767).astype("<i2").tobytes()
     return AudioChunk(pcm=pcm, start_sample=0, sample_rate=rate)
 
 
-def tone_chunk(frequency: float = 440.0, seconds: float = WINDOW_S, amplitude: float = 0.4) -> AudioChunk:
+def tone_chunk(
+    frequency: float = 440.0,
+    seconds: float = WINDOW_S,
+    amplitude: float = 0.4,
+    seed: int | None = None,
+) -> AudioChunk:
     """Pure sine tone at the given frequency."""
+    del seed  # Accepted for a consistent fixture-helper interface.
     n = int(RATE * seconds)
     t = np.arange(n, dtype=np.float32) / RATE
     samples = (np.sin(2 * pi * frequency * t) * amplitude).astype(np.float32)
@@ -116,6 +122,7 @@ def _pixel_brightness(png_b64: str) -> float:
     """Return mean luminance of a base64-encoded RGB PNG, range [0, 1]."""
     img_bytes = base64.b64decode(png_b64)
     from PIL import Image
+
     img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
     arr = np.array(img, dtype=np.float32) / 255.0
     # Perceptual luminance
@@ -125,6 +132,7 @@ def _pixel_brightness(png_b64: str) -> float:
 # ---------------------------------------------------------------------------
 # Group A — Original tests (signatures preserved)
 # ---------------------------------------------------------------------------
+
 
 class SignalProcessingTests(unittest.TestCase):
     def test_uploaded_audio_is_resampled_to_runtime_rate(self):
@@ -160,8 +168,8 @@ class SignalProcessingTests(unittest.TestCase):
 # Group B — Spectrogram stability
 # ---------------------------------------------------------------------------
 
-class SpectrogramStabilityTests(unittest.TestCase):
 
+class SpectrogramStabilityTests(unittest.TestCase):
     def setUp(self):
         self.renderer = _default_renderer()
 
@@ -184,8 +192,9 @@ class SpectrogramStabilityTests(unittest.TestCase):
         mean_power = np.mean(power, axis=1)
         freqs = np.linspace(0, RATE / 2, power.shape[0])
         peak_freq = float(freqs[np.argmax(mean_power)])
-        self.assertAlmostEqual(peak_freq, 440.0, delta=50.0,
-                               msg=f"Peak at {peak_freq:.1f} Hz, expected ~440 Hz")
+        self.assertAlmostEqual(
+            peak_freq, 440.0, delta=50.0, msg=f"Peak at {peak_freq:.1f} Hz, expected ~440 Hz"
+        )
 
     # B3 — two-tone has energy at both bands
     def test_b3_two_tone_energy_at_both_frequencies(self):
@@ -213,20 +222,26 @@ class SpectrogramStabilityTests(unittest.TestCase):
 
         tone_flat = flatness_of(tone_chunk(440.0))
         noise_flat = flatness_of(noise_chunk(seed=0))
-        self.assertGreater(noise_flat, tone_flat,
-                           msg=f"Noise flatness {noise_flat:.3f} should exceed tone flatness {tone_flat:.3f}")
+        self.assertGreater(
+            noise_flat,
+            tone_flat,
+            msg=f"Noise flatness {noise_flat:.3f} should exceed tone flatness {tone_flat:.3f}",
+        )
 
     # B5 — amplitude change shifts dBFS consistently
     def test_b5_amplitude_changes_dbfs_monotonically(self):
-        quiet = self.renderer.render_result(_make_chunk(
-            0.05 * np.sin(2 * pi * 440 * np.arange(int(RATE * WINDOW_S)) / RATE, dtype=np.float32)
-            if False else (0.05 * np.ones(int(RATE * WINDOW_S), dtype=np.float32))
-        )).features.rms_dbfs
-        loud = self.renderer.render_result(_make_chunk(
-            0.5 * np.ones(int(RATE * WINDOW_S), dtype=np.float32)
-        )).features.rms_dbfs
-        self.assertGreater(loud, quiet,
-                           msg="Louder signal must have higher rms_dbfs")
+        quiet = self.renderer.render_result(
+            _make_chunk(
+                0.05
+                * np.sin(2 * pi * 440 * np.arange(int(RATE * WINDOW_S)) / RATE, dtype=np.float32)
+                if False
+                else (0.05 * np.ones(int(RATE * WINDOW_S), dtype=np.float32))
+            )
+        ).features.rms_dbfs
+        loud = self.renderer.render_result(
+            _make_chunk(0.5 * np.ones(int(RATE * WINDOW_S), dtype=np.float32))
+        ).features.rms_dbfs
+        self.assertGreater(loud, quiet, msg="Louder signal must have higher rms_dbfs")
 
     # B6 — determinism
     def test_b6_identical_input_produces_identical_output(self):
@@ -247,6 +262,7 @@ class SpectrogramStabilityTests(unittest.TestCase):
         raw = base64.b64decode(b64)
         self.assertTrue(raw.startswith(b"\x89PNG\r\n\x1a\n"), "Must be a valid PNG")
         from PIL import Image
+
         img = Image.open(io.BytesIO(raw))
         self.assertEqual(img.size, (240, 90))
         # base64 string must only contain safe ASCII
@@ -286,8 +302,8 @@ class SpectrogramStabilityTests(unittest.TestCase):
 # Group C — Acoustic features
 # ---------------------------------------------------------------------------
 
-class AcousticFeatureTests(unittest.TestCase):
 
+class AcousticFeatureTests(unittest.TestCase):
     def setUp(self):
         self.renderer = _default_renderer()
 
@@ -311,8 +327,11 @@ class AcousticFeatureTests(unittest.TestCase):
     def test_c3_centroid_near_tone_frequency(self):
         feat = self._features(tone_chunk(1000.0))
         # Centroid won't be exactly 1000 Hz (harmonics, windowing) but should be close-ish
-        self.assertLess(abs(feat.spectral_centroid_hz - 1000.0), 500.0,
-                        f"Centroid {feat.spectral_centroid_hz} Hz unexpectedly far from 1000 Hz")
+        self.assertLess(
+            abs(feat.spectral_centroid_hz - 1000.0),
+            500.0,
+            f"Centroid {feat.spectral_centroid_hz} Hz unexpectedly far from 1000 Hz",
+        )
 
     # C4 — rolloff is sub-Nyquist
     def test_c4_rolloff_below_nyquist(self):
@@ -332,8 +351,8 @@ class AcousticFeatureTests(unittest.TestCase):
 # Group D — Transport contract and performance
 # ---------------------------------------------------------------------------
 
-class TransportContractTests(unittest.TestCase):
 
+class TransportContractTests(unittest.TestCase):
     def setUp(self):
         self.renderer = _default_renderer()
 
@@ -344,14 +363,29 @@ class TransportContractTests(unittest.TestCase):
 
     def test_d2_spectrogram_dict_keys(self):
         d = self.renderer.render_result(tone_chunk()).spectrogram.as_dict()
-        required = {"image_png_b64", "scale", "min_frequency_hz", "max_frequency_hz",
-                    "floor_db", "ceiling_db", "window_seconds"}
+        required = {
+            "image_png_b64",
+            "scale",
+            "min_frequency_hz",
+            "max_frequency_hz",
+            "floor_db",
+            "ceiling_db",
+            "window_seconds",
+        }
         self.assertEqual(required, set(d.keys()))
 
     def test_d2_acoustic_features_dict_keys(self):
         d = self.renderer.render_result(tone_chunk()).features.as_dict()
-        required = {"rms_dbfs", "peak_dbfs", "clipping_percent", "spectral_centroid_hz",
-                    "spectral_rolloff_hz", "spectral_flatness", "dominant_band_hz", "signal_quality"}
+        required = {
+            "rms_dbfs",
+            "peak_dbfs",
+            "clipping_percent",
+            "spectral_centroid_hz",
+            "spectral_rolloff_hz",
+            "spectral_flatness",
+            "dominant_band_hz",
+            "signal_quality",
+        }
         self.assertEqual(required, set(d.keys()))
 
     def test_d3_render_base64_shim_matches_structured_path(self):
@@ -371,24 +405,15 @@ class TransportContractTests(unittest.TestCase):
         for _ in range(5):
             renderer.render_result(chunk)
         elapsed_ms = (time.perf_counter() - t0) * 1000 / 5
-        self.assertLess(elapsed_ms, 150.0, f"Rendering took {elapsed_ms:.1f} ms — exceeds 150 ms budget")
-
-
-# ---------------------------------------------------------------------------
-# Utility — standalone tone_chunk with optional seed (for B6)
-# ---------------------------------------------------------------------------
-# Override the module-level tone_chunk to accept **kwargs gracefully.
-def tone_chunk(frequency: float = 440.0, seconds: float = WINDOW_S,  # noqa: F811
-               amplitude: float = 0.4, seed=None) -> AudioChunk:
-    n = int(RATE * seconds)
-    t = np.arange(n, dtype=np.float32) / RATE
-    samples = (np.sin(2 * pi * frequency * t) * amplitude).astype(np.float32)
-    return _make_chunk(samples)
+        self.assertLess(
+            elapsed_ms, 150.0, f"Rendering took {elapsed_ms:.1f} ms — exceeds 150 ms budget"
+        )
 
 
 # ---------------------------------------------------------------------------
 # Group E — Axis labels, attention clamping, payload bounds (spec tests 9, 10, 14)
 # ---------------------------------------------------------------------------
+
 
 class AxisAndPayloadTests(unittest.TestCase):
     """
@@ -443,21 +468,33 @@ class AxisAndPayloadTests(unittest.TestCase):
     def test_e3_features_dict_is_json_serializable_and_small(self):
         """acoustic_features dict must be JSON-safe and under 1 KB."""
         import json
-        feat = SpectrogramRenderer(width=120, height=60).render_result(tone_chunk()).features.as_dict()
+
+        feat = (
+            SpectrogramRenderer(width=120, height=60).render_result(tone_chunk()).features.as_dict()
+        )
         serialized = json.dumps(feat)
         self.assertLess(
-            len(serialized), 1024,
-            f"acoustic_features JSON is {len(serialized)} bytes — exceeds 1 KB"
+            len(serialized),
+            1024,
+            f"acoustic_features JSON is {len(serialized)} bytes — exceeds 1 KB",
         )
 
     def test_e3_spectrogram_metadata_dict_excludes_image_bytes(self):
         """The structured spectrogram dict (without image) must be tiny."""
         import json
-        d = SpectrogramRenderer(width=120, height=60).render_result(tone_chunk()).spectrogram.as_dict()
+
+        d = (
+            SpectrogramRenderer(width=120, height=60)
+            .render_result(tone_chunk())
+            .spectrogram.as_dict()
+        )
         d_no_img = {k: v for k, v in d.items() if k != "image_png_b64"}
         serialized = json.dumps(d_no_img)
-        self.assertLess(len(serialized), 256,
-                        f"Spectrogram metadata is {len(serialized)} bytes — unexpectedly large")
+        self.assertLess(
+            len(serialized),
+            256,
+            f"Spectrogram metadata is {len(serialized)} bytes — unexpectedly large",
+        )
 
     def test_e3_base64_image_is_pure_ascii(self):
         """base64 payload must be ASCII-clean (no embedded binary in JSON)."""
@@ -474,9 +511,14 @@ class AxisAndPayloadTests(unittest.TestCase):
         t = np.arange(n, dtype=np.float32) / RATE
         # −55 dBFS ≈ amplitude of 0.00178; use 0.002 to be safely above silence
         samples = (0.002 * np.sin(2 * math.pi * 440 * t)).astype(np.float32)
-        feat = SpectrogramRenderer(width=120, height=60).render_result(_make_chunk(samples)).features
-        self.assertEqual(feat.signal_quality, "quiet",
-                         f"Expected 'quiet' but got '{feat.signal_quality}' (rms={feat.rms_dbfs} dBFS)")
+        feat = (
+            SpectrogramRenderer(width=120, height=60).render_result(_make_chunk(samples)).features
+        )
+        self.assertEqual(
+            feat.signal_quality,
+            "quiet",
+            f"Expected 'quiet' but got '{feat.signal_quality}' (rms={feat.rms_dbfs} dBFS)",
+        )
 
 
 if __name__ == "__main__":

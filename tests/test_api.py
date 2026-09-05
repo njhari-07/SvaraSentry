@@ -3,6 +3,7 @@ import unittest
 import wave
 
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 from backend.main import app
 
@@ -84,16 +85,20 @@ class APITests(unittest.TestCase):
 
         # Connect with token
         with self.client.websocket_connect(f"/ws/audio/pair/{token}") as socket:
-            socket.send_bytes(bytes(8_000))
+            for _ in range(12):
+                socket.send_bytes(bytes(8_000))
             result = socket.receive_json()
-        
+
         self.assertEqual(result["type"], "result")
         self.assertEqual(result["chunk_index"], 1)
-        
+
         # Token should be consumed, connecting again should fail
-        with self.assertRaises(Exception):
-            with self.client.websocket_connect(f"/ws/audio/pair/{token}"):
-                pass
+        with (
+            self.client.websocket_connect(f"/ws/audio/pair/{token}") as rejected,
+            self.assertRaises(WebSocketDisconnect) as closed,
+        ):
+            rejected.receive_json()
+        self.assertEqual(closed.exception.code, 1008)
 
 
 if __name__ == "__main__":

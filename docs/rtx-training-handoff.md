@@ -127,10 +127,10 @@ Compare the generated validation reports for both experiments:
 - false-positive rate at the selected threshold
 - language, source, speaker, and fake-engine slices where present
 
-The augmented model must not materially hurt clean-audio performance. The next
-remaining enhancement after these runs is controlled clean/noise/RIR/telephone
-robustness evaluation. Codec robustness stays deferred until a reproducible
-ffmpeg-based workflow is approved and implemented.
+The augmented model must not materially hurt clean-audio performance. Run
+controlled clean/noise/RIR/telephone/Opus robustness evaluation after selecting
+a checkpoint. The Opus workflow records bitrate, application profile, and FFmpeg
+version in transform metadata.
 
 ## Helpful references
 

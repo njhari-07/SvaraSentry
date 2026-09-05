@@ -8,6 +8,8 @@ dataset layer, so serving code is deliberately not coupled to this module.
 
 from __future__ import annotations
 
+import shutil
+import subprocess
 from collections import OrderedDict
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
@@ -73,10 +75,14 @@ class SaturationConfig:
 
 @dataclass(frozen=True, slots=True)
 class CodecConfig:
-    """Codec round-tripping is explicitly deferred rather than silently faked."""
+    """Lossy codec round-trip settings for realistic VoIP channel artifacts."""
 
     enabled: bool = False
     probability: float = 0.20
+    codec: Literal["opus"] = "opus"
+    bitrates_kbps: tuple[int, ...] = (12, 16, 24)
+    application: Literal["voip", "audio"] = "voip"
+    binary: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,14 +124,32 @@ class AugmentationConfig:
                 raise ValueError("all augmentation probabilities must be in [0, 1]")
         if self.gain.min_db > self.gain.max_db or self.noise.min_snr_db > self.noise.max_snr_db:
             raise ValueError("minimum augmentation values may not exceed maximum values")
-        if not self.resample.intermediate_rates or any(rate <= 0 for rate in self.resample.intermediate_rates):
-            raise ValueError("intermediate resample rates must be a non-empty set of positive values")
-        if self.rir.min_wet > self.rir.max_wet or not 0 <= self.rir.min_wet <= 1 or not 0 <= self.rir.max_wet <= 1:
+        if not self.resample.intermediate_rates or any(
+            rate <= 0 for rate in self.resample.intermediate_rates
+        ):
+            raise ValueError(
+                "intermediate resample rates must be a non-empty set of positive values"
+            )
+        if (
+            self.rir.min_wet > self.rir.max_wet
+            or not 0 <= self.rir.min_wet <= 1
+            or not 0 <= self.rir.max_wet <= 1
+        ):
             raise ValueError("RIR wet mix must be in [0, 1]")
         if self.speed.min_factor <= 0 or self.speed.min_factor > self.speed.max_factor:
             raise ValueError("speed factors must be positive and ordered")
-        if self.filtering.max_db < 0 or self.saturation.min_drive <= 0 or self.saturation.min_drive > self.saturation.max_drive:
+        if (
+            self.filtering.max_db < 0
+            or self.saturation.min_drive <= 0
+            or self.saturation.min_drive > self.saturation.max_drive
+        ):
             raise ValueError("filter and saturation ranges are invalid")
+        if self.codec.codec != "opus":
+            raise ValueError("only the Opus codec is currently supported")
+        if not self.codec.bitrates_kbps or any(rate <= 0 for rate in self.codec.bitrates_kbps):
+            raise ValueError("codec bitrates_kbps must be a non-empty set of positive values")
+        if self.codec.application not in {"voip", "audio"}:
+            raise ValueError("codec application must be 'voip' or 'audio'")
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,7 +180,9 @@ class AugmentationAssets:
         directory = Path(directory)
         if not directory.is_dir():
             raise ValueError(f"{kind} asset directory does not exist: {directory}")
-        paths = tuple(sorted(p for p in directory.rglob("*") if p.suffix.lower() in _ASSET_SUFFIXES))
+        paths = tuple(
+            sorted(p for p in directory.rglob("*") if p.suffix.lower() in _ASSET_SUFFIXES)
+        )
         valid: list[Path] = []
         for path in paths:
             try:
@@ -194,7 +220,7 @@ class AudioAugmenter:
     ``training=False`` disables every stochastic operation, including random
     cropping.  Speed perturbation uses a resampling-style implementation and
     therefore changes pitch along with duration; its narrow range is deliberate.
-    Codec augmentation is feature-gated and currently rejected when enabled.
+    Codec augmentation uses a controlled FFmpeg Opus round-trip when enabled.
     """
 
     def __init__(
@@ -204,10 +230,13 @@ class AudioAugmenter:
         *,
         training: bool = True,
     ) -> None:
-        if config.codec.enabled:
-            raise ValueError("codec augmentation is deferred; keep codec.enabled=false")
         self.config = config
         self.training = training
+        self.codec_binary: str | None = None
+        self.codec_version: str | None = None
+        if self.training and self.config.enabled and self.config.codec.enabled:
+            self.codec_binary = _resolve_ffmpeg(self.config.codec.binary)
+            self.codec_version = _ffmpeg_version(self.codec_binary)
         # Evaluation has no stochastic asset transforms. Avoid a multi-second
         # scan of thousands of assets and allow validation/test to run without
         # locally installed augmentation collections.
@@ -256,7 +285,9 @@ class AudioAugmenter:
                 audio, details = self._apply(name, audio, generator)
                 applied.append({"name": name, **details})
 
-        audio = _finalize_length(audio, self.config.window_samples, random_enabled, self.config.padding, generator)
+        audio = _finalize_length(
+            audio, self.config.window_samples, random_enabled, self.config.padding, generator
+        )
         if not torch.isfinite(audio).all():
             raise ValueError("augmentation transform produced non-finite values")
         peak = audio.abs().max() if audio.numel() else torch.tensor(0.0)
@@ -278,11 +309,16 @@ class AudioAugmenter:
             ("gain", self.config.gain.probability),
             ("noise", self.config.noise.probability if self.assets.noise else 0.0),
             ("saturation", self.config.saturation.probability),
+            ("codec", self.config.codec.probability if self.config.codec.enabled else 0.0),
         )
         selected = [name for name, probability in probabilities if _chance(probability, generator)]
         if len(selected) <= self.config.max_random_transforms:
             return selected
-        keep = set(torch.randperm(len(selected), generator=generator)[: self.config.max_random_transforms].tolist())
+        keep = set(
+            torch.randperm(len(selected), generator=generator)[
+                : self.config.max_random_transforms
+            ].tolist()
+        )
         return [name for index, name in enumerate(selected) if index in keep]
 
     def _apply(
@@ -296,26 +332,53 @@ class AudioAugmenter:
         if name == "noise":
             path = _choice(self.assets.noise, generator)
             snr_db = _uniform(self.config.noise.min_snr_db, self.config.noise.max_snr_db, generator)
-            return _mix_noise(audio, self.assets.load(path), snr_db, generator), {"snr_db": snr_db, "asset": str(path)}
+            return _mix_noise(audio, self.assets.load(path), snr_db, generator), {
+                "snr_db": snr_db,
+                "asset": str(path),
+            }
         if name == "rir":
             path = _choice(self.assets.rir, generator)
             wet = _uniform(self.config.rir.min_wet, self.config.rir.max_wet, generator)
             return _apply_rir(audio, self.assets.load(path), wet), {"wet": wet, "asset": str(path)}
         if name == "resample":
             rate = _choice(self.config.resample.intermediate_rates, generator)
-            return _resample(_resample(audio, self.config.sample_rate, rate), rate, self.config.sample_rate), {"intermediate_rate": rate}
+            return _resample(
+                _resample(audio, self.config.sample_rate, rate), rate, self.config.sample_rate
+            ), {"intermediate_rate": rate}
         if name == "filter":
             telephone = _chance(self.config.filtering.telephone_probability, generator)
             if telephone:
-                return _telephone_filter(audio, self.config.sample_rate), {"profile": "telephone_300_3400"}
+                return _telephone_filter(audio, self.config.sample_rate), {
+                    "profile": "telephone_300_3400"
+                }
             db = _uniform(-self.config.filtering.max_db, self.config.filtering.max_db, generator)
-            return _broad_eq(audio, self.config.sample_rate, db), {"profile": "broad_shelf", "db": db}
+            return _broad_eq(audio, self.config.sample_rate, db), {
+                "profile": "broad_shelf",
+                "db": db,
+            }
         if name == "speed":
             factor = _uniform(self.config.speed.min_factor, self.config.speed.max_factor, generator)
             return _speed(audio, factor), {"factor": factor, "pitch_changes": True}
         if name == "saturation":
-            drive = _uniform(self.config.saturation.min_drive, self.config.saturation.max_drive, generator)
+            drive = _uniform(
+                self.config.saturation.min_drive, self.config.saturation.max_drive, generator
+            )
             return torch.tanh(audio * drive) / torch.tanh(torch.tensor(drive)), {"drive": drive}
+        if name == "codec":
+            bitrate = int(_choice(self.config.codec.bitrates_kbps, generator))
+            assert self.codec_binary is not None
+            return _codec_round_trip(
+                audio,
+                sample_rate=self.config.sample_rate,
+                ffmpeg_binary=self.codec_binary,
+                bitrate_kbps=bitrate,
+                application=self.config.codec.application,
+            ), {
+                "codec": self.config.codec.codec,
+                "bitrate_kbps": bitrate,
+                "application": self.config.codec.application,
+                "tool_version": self.codec_version,
+            }
         raise AssertionError(f"unknown transform {name}")
 
 
@@ -327,13 +390,17 @@ def _validate_waveform(waveform: torch.Tensor) -> torch.Tensor:
     if waveform.ndim == 2 and waveform.shape[0] == 1:
         waveform = waveform[0]
     elif waveform.ndim != 1:
-        raise ValueError("waveform must have shape [samples] or [1, samples]; downmix explicitly first")
+        raise ValueError(
+            "waveform must have shape [samples] or [1, samples]; downmix explicitly first"
+        )
     if not torch.isfinite(waveform).all():
         raise ValueError("waveform contains NaN or Inf")
     return waveform.detach().to(dtype=torch.float32, device="cpu").clone().contiguous()
 
 
-def _crop_initial(audio: torch.Tensor, length: int, random_crop: bool, generator: torch.Generator | None) -> torch.Tensor:
+def _crop_initial(
+    audio: torch.Tensor, length: int, random_crop: bool, generator: torch.Generator | None
+) -> torch.Tensor:
     if audio.numel() <= length:
         return audio
     if random_crop:
@@ -343,7 +410,13 @@ def _crop_initial(audio: torch.Tensor, length: int, random_crop: bool, generator
     return audio[start : start + length]
 
 
-def _finalize_length(audio: torch.Tensor, length: int, random_crop: bool, padding: str, generator: torch.Generator | None) -> torch.Tensor:
+def _finalize_length(
+    audio: torch.Tensor,
+    length: int,
+    random_crop: bool,
+    padding: str,
+    generator: torch.Generator | None,
+) -> torch.Tensor:
     if audio.numel() > length:
         return _crop_initial(audio, length, random_crop, generator)
     if audio.numel() == length:
@@ -360,7 +433,9 @@ def _finalize_length(audio: torch.Tensor, length: int, random_crop: bool, paddin
     return F.pad(audio, (0, missing))
 
 
-def _mix_noise(audio: torch.Tensor, noise: torch.Tensor, snr_db: float, generator: torch.Generator | None) -> torch.Tensor:
+def _mix_noise(
+    audio: torch.Tensor, noise: torch.Tensor, snr_db: float, generator: torch.Generator | None
+) -> torch.Tensor:
     if not audio.numel() or not noise.numel():
         return audio
     noise = _fit_noise(noise, audio.numel(), generator)
@@ -409,10 +484,14 @@ def _resample(audio: torch.Tensor, source_rate: int, target_rate: int) -> torch.
     if target_rate < source_rate:
         filtered = _lowpass(audio, cutoff_hz=0.47 * target_rate, sample_rate=source_rate)
     output_length = max(1, round(filtered.numel() * target_rate / source_rate))
-    return F.interpolate(filtered[None, None], size=output_length, mode="linear", align_corners=False)[0, 0]
+    return F.interpolate(
+        filtered[None, None], size=output_length, mode="linear", align_corners=False
+    )[0, 0]
 
 
-def _lowpass(audio: torch.Tensor, cutoff_hz: float, sample_rate: int, taps: int = 101) -> torch.Tensor:
+def _lowpass(
+    audio: torch.Tensor, cutoff_hz: float, sample_rate: int, taps: int = 101
+) -> torch.Tensor:
     cutoff = min(cutoff_hz / sample_rate, 0.49)
     positions = torch.arange(taps, dtype=audio.dtype, device=audio.device) - (taps - 1) / 2
     kernel = 2 * cutoff * torch.sinc(2 * cutoff * positions)
@@ -439,6 +518,108 @@ def _broad_eq(audio: torch.Tensor, sample_rate: int, db: float) -> torch.Tensor:
 def _speed(audio: torch.Tensor, factor: float) -> torch.Tensor:
     length = max(1, round(audio.numel() / factor))
     return F.interpolate(audio[None, None], size=length, mode="linear", align_corners=False)[0, 0]
+
+
+def _resolve_ffmpeg(configured_binary: str | None) -> str:
+    """Return a usable FFmpeg executable without silently disabling codecs."""
+    if configured_binary:
+        candidate = shutil.which(configured_binary) or configured_binary
+        if Path(candidate).is_file() or shutil.which(candidate):
+            return str(candidate)
+        raise ValueError(f"configured FFmpeg binary does not exist: {configured_binary}")
+    system_binary = shutil.which("ffmpeg")
+    if system_binary:
+        return system_binary
+    try:
+        import imageio_ffmpeg
+
+        bundled_binary = imageio_ffmpeg.get_ffmpeg_exe()
+    except (ImportError, RuntimeError) as error:
+        raise ValueError(
+            "codec augmentation requires FFmpeg; install ffmpeg or the imageio-ffmpeg package"
+        ) from error
+    if not Path(bundled_binary).is_file():
+        raise ValueError(f"imageio-ffmpeg returned a missing executable: {bundled_binary}")
+    return bundled_binary
+
+
+def _ffmpeg_version(ffmpeg_binary: str) -> str:
+    result = subprocess.run(
+        [ffmpeg_binary, "-version"],
+        check=True,
+        capture_output=True,
+        timeout=10,
+    )
+    first_line = result.stdout.decode("utf-8", errors="replace").splitlines()[0]
+    return first_line.strip()
+
+
+def _codec_round_trip(
+    audio: torch.Tensor,
+    *,
+    sample_rate: int,
+    ffmpeg_binary: str,
+    bitrate_kbps: int,
+    application: Literal["voip", "audio"],
+) -> torch.Tensor:
+    """Encode to Opus and decode back using pipes; no compressed file is retained."""
+    source = audio.detach().to(dtype=torch.float32, device="cpu").contiguous().numpy().tobytes()
+    common = [ffmpeg_binary, "-hide_banner", "-loglevel", "error", "-nostdin"]
+    encode = subprocess.run(
+        [
+            *common,
+            "-f",
+            "f32le",
+            "-ar",
+            str(sample_rate),
+            "-ac",
+            "1",
+            "-i",
+            "pipe:0",
+            "-c:a",
+            "libopus",
+            "-application",
+            application,
+            "-b:a",
+            f"{bitrate_kbps}k",
+            "-vbr",
+            "off",
+            "-compression_level",
+            "10",
+            "-f",
+            "ogg",
+            "pipe:1",
+        ],
+        input=source,
+        check=True,
+        capture_output=True,
+        timeout=30,
+    )
+    decode = subprocess.run(
+        [
+            *common,
+            "-f",
+            "ogg",
+            "-i",
+            "pipe:0",
+            "-f",
+            "f32le",
+            "-acodec",
+            "pcm_f32le",
+            "-ar",
+            str(sample_rate),
+            "-ac",
+            "1",
+            "pipe:1",
+        ],
+        input=encode.stdout,
+        check=True,
+        capture_output=True,
+        timeout=30,
+    )
+    if not decode.stdout:
+        raise RuntimeError("FFmpeg codec round-trip produced empty audio")
+    return torch.frombuffer(bytearray(decode.stdout), dtype=torch.float32).clone()
 
 
 def _decode_asset(path: Path) -> tuple[torch.Tensor, int]:
@@ -523,12 +704,26 @@ def load_augmentation_config(
         ),
         resample=ResampleConfig(
             probability=float(section("resample").get("probability", 0.25)),
-            intermediate_rates=tuple(int(rate) for rate in section("resample").get("intermediate_rates", (8_000, 12_000, 22_050, 24_000))),
+            intermediate_rates=tuple(
+                int(rate)
+                for rate in section("resample").get(
+                    "intermediate_rates", (8_000, 12_000, 22_050, 24_000)
+                )
+            ),
         ),
         filtering=FilterConfig(**section("filtering")),
         speed=SpeedConfig(**section("speed")),
         saturation=SaturationConfig(**section("saturation")),
-        codec=CodecConfig(**section("codec")),
+        codec=CodecConfig(
+            enabled=bool(section("codec").get("enabled", False)),
+            probability=float(section("codec").get("probability", 0.20)),
+            codec=str(section("codec").get("codec", "opus")),
+            bitrates_kbps=tuple(
+                int(rate) for rate in section("codec").get("bitrates_kbps", (12, 16, 24))
+            ),
+            application=str(section("codec").get("application", "voip")),
+            binary=section("codec").get("binary"),
+        ),
     )
 
 

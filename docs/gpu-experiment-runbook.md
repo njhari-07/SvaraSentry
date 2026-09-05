@@ -48,6 +48,6 @@ python -m training.train \
 
 Each run writes validation ROC-AUC, PR-AUC, EER, false-positive rate, and
 available language/source/speaker/fake-engine slices to `runs/<experiment>/`.
-Run clean/noise/RIR/telephone robustness evaluations after a checkpoint is
-selected. Codec evaluation remains deferred until a controlled ffmpeg workflow
-is added.
+Run clean/noise/RIR/telephone/Opus robustness evaluations after a checkpoint is
+selected. Codec augmentation uses a controlled in-memory FFmpeg round-trip and
+records the bitrate and tool version in transform metadata.

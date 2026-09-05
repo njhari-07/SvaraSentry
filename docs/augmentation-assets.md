@@ -10,8 +10,8 @@ They are excluded from Git through `data/augmentation_assets/` in `.gitignore`.
 | Dataset | OpenSLR SLR28, Room Impulse Response and Noise Database |
 | Source | https://www.openslr.org/28/ |
 | License | Apache License 2.0 |
-| Downloaded | 2026-09-05 |
-| Archive | `rirs_noises.zip` |
+| Downloaded | 2026-09-06 |
+| Archive | Verified after download, then removed to recover 1.3 GiB |
 | Project placement | `data/augmentation_assets/` |
 
 The local collection was assembled from these SLR28 paths:
@@ -26,6 +26,7 @@ WAV files. The augmentation loader performs its own startup validation and
 silently excludes corrupt or near-silent individual files; it raises a clear
 error if an explicitly configured asset directory has no valid files.
 
-Do not place source speech or spoofed speech in `noise/`. Keep the downloaded
-archive and this provenance record with any experiment metadata. If assets are
-redistributed, retain the applicable license and attribution notices.
+Do not place source speech or spoofed speech in `noise/`. Keep this provenance
+record with experiment metadata; the source archive can be downloaded again
+from OpenSLR. If assets are redistributed, retain the applicable license and
+attribution notices.

@@ -39,11 +39,11 @@ USER appuser
 
 FROM runtime AS development
 USER root
-COPY requirements-dev.txt ./
-COPY tests ./tests
+COPY requirements-ml.txt requirements-dev.txt ./
 RUN python -m pip install --no-cache-dir \
         --index-url https://download.pytorch.org/whl/cpu \
-        "torch>=2.10,<3" \
-    && python -m pip install --no-cache-dir -r requirements-dev.txt
+        "torch>=2.10,<3" "torchaudio>=2.10,<3" \
+    && python -m pip install --no-cache-dir -r requirements-ml.txt -r requirements-dev.txt
+COPY tests ./tests
 USER appuser
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

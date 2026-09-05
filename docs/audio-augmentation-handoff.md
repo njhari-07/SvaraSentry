@@ -377,7 +377,7 @@ The task is complete when:
 - augmentation is training-only and independent of labels;
 - clean examples remain in the training distribution;
 - gain, noise, RIR, resampling/filtering, and optional speed transforms work;
-- codec augmentation is either implemented behind a flag or clearly deferred;
+- Opus codec augmentation is implemented behind a configuration flag;
 - randomness is reproducible across runs and data-loader workers;
 - configuration and applied-transform metadata can be logged;
 - unit and dataset-integration tests pass;
