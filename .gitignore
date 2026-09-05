@@ -29,5 +29,7 @@ data/raw/
 data/team_recordings/
 data/sarvam_generated/
 data/dataset_manifest.csv
+data/augmentation_assets/
+runs/
 training/checkpoints/*
 !training/checkpoints/.gitkeep

@@ -1,0 +1,18 @@
+# Keep the same audio contract as augmentation.yaml, but disable all stochastic
+# transforms. Use this for the controlled no-augmentation experiment.
+audio:
+  sample_rate: 16000
+  window_samples: 48000
+augmentation:
+  enabled: false
+  unchanged_probability: 1.0
+  max_random_transforms: 0
+  padding: zero
+  gain: {probability: 0.0, min_db: -8.0, max_db: 6.0}
+  noise: {probability: 0.0, min_snr_db: 8.0, max_snr_db: 35.0, asset_dir: data/augmentation_assets/noise}
+  rir: {probability: 0.0, min_wet: 0.20, max_wet: 0.80, asset_dir: data/augmentation_assets/rir}
+  resample: {probability: 0.0, intermediate_rates: [8000, 12000, 22050, 24000]}
+  filtering: {probability: 0.0, max_db: 6.0, telephone_probability: 0.25}
+  speed: {probability: 0.0, min_factor: 0.95, max_factor: 1.05}
+  saturation: {probability: 0.0, min_drive: 1.1, max_drive: 1.8}
+  codec: {enabled: false, probability: 0.0}

@@ -31,16 +31,19 @@ HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=3 \
 
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
-FROM runtime AS development
-USER root
-COPY requirements-dev.txt ./
-COPY tests ./tests
-RUN python -m pip install --no-cache-dir -r requirements-dev.txt
-USER appuser
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
-
 FROM runtime AS ml-runtime
 USER root
 COPY requirements-ml.txt ./
 RUN python -m pip install --no-cache-dir -r requirements-ml.txt
 USER appuser
+
+FROM runtime AS development
+USER root
+COPY requirements-dev.txt ./
+COPY tests ./tests
+RUN python -m pip install --no-cache-dir \
+        --index-url https://download.pytorch.org/whl/cpu \
+        "torch>=2.10,<3" \
+    && python -m pip install --no-cache-dir -r requirements-dev.txt
+USER appuser
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
