@@ -2,81 +2,6 @@
 
 > Real-time AI voice-deepfake recognition and identity-risk monitoring.
 
-## Training audio augmentation
-
-Training uses `training.augmentations.AudioAugmenter` to prepare a mono, 16 kHz,
-float32 waveform of exactly 48,000 samples. Augmentation is applied dynamically
-and only by `training.audio_dataset.AudioDataset(split="train")`; validation and
-test use the same deterministic decode, resample, center-crop/pad, and amplitude
-safety path without random channel changes. The augmenter never receives a label,
-so real and fake examples share the same policy.
-
-The checked-in defaults are in `training/configs/augmentation.yaml`. To enable
-real noise or room simulation, set `noise.asset_dir` and/or `rir.asset_dir` to a
-directory of WAV/FLAC files. The loader rejects missing, corrupt, empty, and
-near-silent asset directories at startup, keeps decoded assets in a bounded CPU
-cache, and leaves generated/private assets out of Git. Use `dataset.set_epoch(n)`
-each epoch; each sample's CPU generator is derived from the experiment seed,
-epoch, sample ID, worker, and distributed rank.
-
-The repository configuration expects locally downloaded assets in
-`data/augmentation_assets/noise` and `data/augmentation_assets/rir`. Apply the
-same paths when constructing `NoiseConfig` and `RirConfig`; these assets are
-intentionally ignored by Git.
-
-Codec augmentation is deliberately feature-gated and currently deferred because
-it needs a controlled binary, version capture, and reproducible cache. Speed
-perturbation is resampling-style and changes pitch as well as duration; its
-default range is intentionally narrow. Save the config and global seed with the
-experiment, and evaluate clean/noisy/reverberant/telephony subsets separately.
-Before raising data-loader worker counts, measure the real manifest with
-`python -m training.benchmark_loader --manifest data/train.csv --workers 4 --device cuda`.
-
-### Preparing and running experiments
-
-Split assignment stays outside augmentation. Create three reviewed manifests with
-at least `path,label` and preferably `speaker`, `language`, `source`, and
-`fake_engine`, then validate and combine them without leakage:
-
-```bash
-python -m data_pipeline.prepare_split_manifest \
-  --train data/train.csv --validation data/validation.csv --test data/test.csv \
-  --output data/dataset_manifest.csv --group-column speaker
-```
-
-For ASVspoof 2019 Logical Access, do not manually relabel or re-split files.
-After extracting `LA.zip`, build a manifest directly from its official protocols:
-
-```bash
-python -m data_pipeline.build_asvspoof2019_la_manifest \
-  --root data/raw/asvspoof2019_la/LA \
-  --output data/dataset_manifest.csv
-```
-
-Run the no-augmentation baseline with `training/configs/baseline.yaml`, then
-run the configured augmentation experiment. Each run writes its seed, complete
-augmentation configuration, validation ROC-AUC/PR-AUC/EER/FPR, and available
-language/source/speaker/fake-engine slices:
-
-```bash
-python -m training.train --manifest data/dataset_manifest.csv --output runs/baseline \
-  --augmentation-config training/configs/baseline.yaml
-python -m training.train --manifest data/dataset_manifest.csv --output runs/augmented \
-  --augmentation-config training/configs/augmentation.yaml
-```
-
-Generate transform metadata and waveform statistics for a review sample with:
-
-```bash
-python -m training.augmentation_report \
-  --manifest data/dataset_manifest.csv --output runs/augmentation-samples.jsonl
-```
-
-See [asset provenance](docs/augmentation-assets.md) before redistributing or
-replacing the local asset collection.
-For the GPU transfer, worker benchmark, and controlled experiment commands, see
-[the RTX experiment runbook](docs/gpu-experiment-runbook.md).
-
 SvaraSentry protects live voice interactions by continuously analyzing speech for signs of
 AI generation or voice cloning. It accepts audio from a computer microphone, uploaded file,
 or phone relay; evaluates overlapping speech windows with a trained anti-spoofing model; and
@@ -100,6 +25,30 @@ credentials, access, or confidential information.
 | User experience | First assessment after three seconds, then approximately one update per second |
 | Deployment | Containerized services with authenticated HTTPS/WSS access and scalable GPU inference |
 | Privacy model | Ephemeral audio processing by default, encrypted metadata and evidence only when policy permits |
+
+## Technology stack
+
+| Layer | Technology |
+|---|---|
+| Web application | HTML5, CSS3, vanilla JavaScript, responsive dashboard, and phone-relay interface |
+| Browser audio | MediaDevices `getUserMedia`, Web Audio API, AudioContext, and HTML Canvas |
+| API and real-time transport | Python 3.11+, FastAPI, Uvicorn, REST endpoints, and WebSockets |
+| Audio processing | 16 kHz mono PCM16, NumPy, SoundFile/libsndfile, windowing, resampling, and signal-quality analysis |
+| Deepfake-recognition model | PyTorch, Hugging Face Transformers, Wav2Vec2/XLSR encoder, attentive pooling, and binary classification head |
+| Training and evaluation | CUDA-enabled PyTorch DataLoader, scikit-learn metrics, ROC-AUC, PR-AUC, EER, and sliced evaluation |
+| Audio augmentation | Custom seeded PyTorch pipeline for gain, noise, reverberation, filtering, clipping, speed, and telephony simulation |
+| Dataset and manifests | ASVspoof 2019 LA protocols, project and Indian-language speech sources, CSV manifests, and speaker-aware split validation |
+| Risk and identity layer | Probability smoothing, configurable alert thresholds, learned voice embeddings, and cosine similarity |
+| Explainability and visualization | Model-attention regions, NumPy STFT spectrograms, Pillow image rendering, and live risk timelines |
+| GPU acceleration | NVIDIA CUDA for RTX-class local training and automatic CPU/GPU inference selection |
+| Testing and code quality | pytest, Ruff, HTTPX, deterministic seeds, integration tests, and GitHub Actions CI |
+| Packaging and delivery | Multi-stage Docker images, Docker Compose, non-root containers, health checks, and versioned model checkpoints |
+| Storage and privacy | Local/private datasets and checkpoints, Git-ignored generated assets, and ephemeral live-session audio by default |
+
+The stack keeps one audio contract from data preparation through live inference: mono speech
+at 16 kHz, analyzed in overlapping three-second windows. Wav2Vec2 provides the core speech
+representation, while XLSR checkpoints allow the same training pipeline to extend across
+Hindi and other Indian-language speech without replacing the surrounding application.
 
 ## Problem statement
 
