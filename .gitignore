@@ -26,6 +26,10 @@ dist/
 
 # Generated/private datasets and model artifacts
 data/raw/
+training/pretrained/
+data/processed/
+data/manifests/
+data/reports/
 data/team_recordings/
 data/sarvam_generated/
 data/dataset_manifest.csv

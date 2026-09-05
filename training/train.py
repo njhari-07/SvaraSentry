@@ -46,7 +46,8 @@ def make_loader(dataset: AudioDataset, args: argparse.Namespace, *, shuffle: boo
         shuffle=shuffle,
         num_workers=args.workers,
         pin_memory=torch.device(args.device).type == "cuda",
-        persistent_workers=args.workers > 0,
+        # Recreate workers after set_epoch so they receive the new epoch seed.
+        persistent_workers=False,
     )
 
 
@@ -65,6 +66,17 @@ def metric_report(labels: list[int], scores: list[float], threshold: float) -> d
         "pr_auc": float(average_precision_score(labels_array, scores_array)),
         "eer": eer,
         "false_positive_rate": fpr_at_threshold,
+    }
+
+
+def serving_checkpoint(model: nn.Module, model_name: str, report: dict) -> dict:
+    """Package trained weights using the backend's checkpoint contract."""
+    return {
+        "format_version": 1,
+        "model_name": model_name,
+        "hidden_size": model.projection[1].out_features,
+        "state_dict": model.state_dict(),
+        "metrics": report["overall"],
     }
 
 
@@ -147,6 +159,10 @@ def main() -> None:
             torch.save(
                 {"epoch": epoch + 1, "model": model.state_dict(), "optimizer": optimizer.state_dict(), "report": report, "augmentation": augmentation_config_dict(config), "seed": args.seed},
                 args.output / "best.pt",
+            )
+            torch.save(
+                serving_checkpoint(model, args.model_name, report),
+                args.output / "model.pt",
             )
         print(f"epoch={epoch + 1} loss={report['train_loss']:.4f} validation={report['overall']}")
 

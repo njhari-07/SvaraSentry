@@ -107,6 +107,8 @@ def _read_manifest(path: Path, requested_split: Split) -> list[AudioRecord]:
         # Split assignment is external to augmentation.  A manifest without a
         # split column is treated as an already-selected split for compatibility.
         manifest_split = str(row.get("split") or "").strip().lower()
+        if manifest_split == "dev":
+            manifest_split = "validation"
         if manifest_split and manifest_split != requested_split:
             continue
         label = str(row["label"]).strip().lower()
@@ -118,6 +120,8 @@ def _read_manifest(path: Path, requested_split: Split) -> list[AudioRecord]:
             for key, value in row.items()
             if key not in {"path", "label", "id"} and value not in {None, ""}
         }
+        if "fake_engine" not in metadata and row.get("attack_type"):
+            metadata["fake_engine"] = str(row["attack_type"])
         records.append(AudioRecord(source, _LABELS[label], str(row.get("id") or source), metadata))
     if not records:
         raise ValueError(f"manifest has no records for split {requested_split!r}: {path}")
