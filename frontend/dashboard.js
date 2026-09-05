@@ -1,3 +1,9 @@
+// Acoustic panel is loaded as an ES module — wait for it before first render
+let acousticPanel = null;
+import("/static/acoustic_panel.js")
+  .then(({ createAcousticPanel }) => { acousticPanel = createAcousticPanel(); })
+  .catch(() => { /* acoustic panel unavailable — spectrogram still shows via fallback */ });
+
 const state = {
   config: null,
   monitorSocket: null,
@@ -94,12 +100,31 @@ function renderResult(result) {
   $("window-count").textContent = `${result.chunk_index} window${result.chunk_index === 1 ? "" : "s"}`;
   setIdentity(result.voice_enrolled, result.identity_match);
 
-  if (result.spectrogram_png_b64) {
-    $("spectrogram").src = `data:image/png;base64,${result.spectrogram_png_b64}`;
-    $("spectrogram").classList.add("visible");
-    $("spectrogram-empty").hidden = true;
+  if (acousticPanel) {
+    acousticPanel.update(result);
+  } else {
+    // Fallback for very early renders before ES module resolves
+    if (result.spectrogram_png_b64) {
+      $("spectrogram").src = `data:image/png;base64,${result.spectrogram_png_b64}`;
+      $("spectrogram").classList.add("visible");
+      $("spectrogram-empty").hidden = true;
+    }
+    const overlay = $("attention-region");
+    if (overlay) {
+      const region = result.flagged_region;
+      const meta = result.spectrogram;
+      if (region?.time_offset_ms && meta) {
+        const [start, end] = region.time_offset_ms;
+        const totalMs = (meta.window_seconds ?? 3.0) * 1000;
+        const cs = Math.max(0, start), ce = Math.min(totalMs, end);
+        if (ce > cs) {
+          overlay.style.left = `${(cs / totalMs * 100).toFixed(2)}%`;
+          overlay.style.width = `${Math.max(2, (ce - cs) / totalMs * 100).toFixed(2)}%`;
+          overlay.hidden = false;
+        } else { overlay.hidden = true; }
+      } else { overlay.hidden = true; }
+    }
   }
-  renderAttention(result.flagged_region);
   state.values.push({ risk, raw: Number(result.risk_score), level: result.alert_level });
   state.values = state.values.slice(-120);
   drawTimeline();
@@ -144,18 +169,6 @@ function setIdentity(enrolled, match) {
   $("enroll-open").textContent = "Manage";
 }
 
-function renderAttention(region) {
-  const overlay = $("attention-region");
-  if (!region?.time_offset_ms || !state.config) {
-    overlay.hidden = true;
-    return;
-  }
-  const [start, end] = region.time_offset_ms;
-  const total = state.config.window_seconds * 1000;
-  overlay.style.left = `${Math.max(0, start / total * 100)}%`;
-  overlay.style.width = `${Math.max(2, (end - start) / total * 100)}%`;
-  overlay.hidden = false;
-}
 
 function addEvent(level, title, copy) {
   const list = $("event-list");
@@ -313,6 +326,7 @@ async function resetSession() {
 }
 
 function resetDisplay() {
+  if (acousticPanel) acousticPanel.reset();
   state.values = [];
   state.lastLevel = "none";
   $("gauge").style.setProperty("--risk", 0);

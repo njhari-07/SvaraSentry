@@ -87,20 +87,53 @@
       </section>
 
       <section class="analysis-grid">
-        <article class="panel spectrogram-panel">
+        <article class="panel spectrogram-panel" aria-labelledby="acoustic-heading">
           <div class="panel-head">
-            <div><span class="panel-kicker">ACOUSTIC VIEW</span><h2>Spectrogram</h2></div>
-            <div class="frequency-legend"><span></span> Voice energy <i></i> Anomaly focus</div>
-          </div>
-          <div class="spectrogram-stage">
-            <div class="frequency-axis"><span>8 kHz</span><span>4 kHz</span><span>0 Hz</span></div>
-            <div class="spectrogram-frame">
-              <img id="spectrogram" alt="Live audio spectrogram" />
-              <div id="spectrogram-empty" class="spectrogram-empty"><span class="empty-wave">▂▅▃▇▂▆▃▅</span><p>Spectrogram appears after the first 3-second window</p></div>
-              <div id="attention-region" class="attention-region" hidden></div>
+            <div>
+              <span class="panel-kicker">ACOUSTIC VIEW</span>
+              <h2 id="acoustic-heading">Spectrogram</h2>
+            </div>
+            <div class="acoustic-header-right">
+              <span id="signal-quality-badge" class="signal-quality-badge" role="status" aria-live="polite"></span>
+              <details class="acoustic-help" id="acoustic-help">
+                <summary aria-label="Help: what do these values mean?">?</summary>
+                <div class="acoustic-help-panel" role="tooltip">
+                  <strong>Reading the acoustic view</strong>
+                  <dl>
+                    <dt>Color scale</dt><dd>Dark = low energy · bright coral = high energy. The scale is fixed (not per-image auto-scaled), so similar energy always shows the same color across windows.</dd>
+                    <dt>Frequency axis</dt><dd>Perceptual (mel) scale — speech harmonics between 0–3 kHz are given more visual space than the 3–8 kHz range.</dd>
+                    <dt>Model focus</dt><dd>The hatched band shows the time region the detection model weighted most heavily. It reflects temporal attention — not a specific frequency artifact.</dd>
+                    <dt>Centroid</dt><dd>The frequency that splits the spectrum into two equal energy halves. Voiced speech typically sits 0.5–2 kHz.</dd>
+                    <dt>Rolloff</dt><dd>The frequency below which 85% of energy is concentrated.</dd>
+                    <dt>Flatness</dt><dd>0 = pure tone (harmonic), 1 = noise-like. Describes texture, not authenticity.</dd>
+                    <dt>Dominant band</dt><dd>The frequency range with the highest mean energy in this window.</dd>
+                  </dl>
+                </div>
+              </details>
             </div>
           </div>
-          <div class="time-axis"><span>−3.0s</span><span>−2.0s</span><span>−1.0s</span><span>Now</span></div>
+          <div class="spectrogram-stage">
+            <div id="frequency-axis" class="frequency-axis" aria-hidden="true"></div>
+            <div id="spectrogram-frame" class="spectrogram-frame">
+              <img id="spectrogram" alt="Live audio spectrogram — frequency over the last 3 seconds" />
+              <div id="spectrogram-empty" class="spectrogram-empty"><span class="empty-wave">▂▅▃▇▂▆▃▅</span><p>Spectrogram appears after the first 3-second window</p></div>
+              <div id="attention-region" class="attention-region" hidden aria-hidden="true"></div>
+              <div id="crosshair-tip" class="crosshair-tip" hidden aria-hidden="true"></div>
+            </div>
+            <div class="colorbar-wrap" aria-label="Energy color scale">
+              <span id="colorbar-high" class="colorbar-label top">−10 dB</span>
+              <div id="energy-colorbar" class="energy-colorbar"></div>
+              <span id="colorbar-low" class="colorbar-label bottom">−80 dB</span>
+            </div>
+          </div>
+          <div class="time-axis" aria-hidden="true"><span>−3.0s</span><span>−2.0s</span><span>−1.0s</span><span>Now</span></div>
+          <div class="acoustic-footer">
+            <div id="acoustic-props" class="acoustic-props" aria-label="Acoustic properties"></div>
+            <div class="focus-key" id="focus-legend" hidden>
+              <span class="focus-swatch" aria-hidden="true"></span>Model focus
+            </div>
+          </div>
+          <span id="crosshair-aria" class="sr-only" aria-live="polite" aria-atomic="true"></span>
         </article>
 
         <article class="panel timeline-panel">

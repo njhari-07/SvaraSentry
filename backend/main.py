@@ -27,7 +27,7 @@ from backend.audio_io import decode_audio
 from backend.config import Settings
 from backend.inference import InferenceEngine, create_inference_engine
 from backend.risk_engine import RiskEngine
-from backend.spectrogram import SpectrogramRenderer, cosine_similarity
+from backend.spectrogram import SpectrogramRenderer, cosine_similarity, SpectrogramConfig
 from backend.streaming import AudioChunk, PCMChunker
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -36,7 +36,9 @@ settings = Settings.from_env()
 inference: InferenceEngine = create_inference_engine(
     settings.model_mode, settings.checkpoint_path
 )
-spectrogram = SpectrogramRenderer()
+spectrogram = SpectrogramRenderer(
+    config=SpectrogramConfig(window_seconds=settings.window_seconds)
+)
 
 
 @dataclass(slots=True)
@@ -262,9 +264,9 @@ async def dashboard_socket(websocket: WebSocket, session_id: str) -> None:
 
 async def process_chunk(session: SessionState, chunk: AudioChunk) -> dict[str, object]:
     started = time.perf_counter()
-    prediction, image = await asyncio.gather(
+    prediction, render_output = await asyncio.gather(
         asyncio.to_thread(inference.score, chunk),
-        asyncio.to_thread(spectrogram.render_base64, chunk),
+        asyncio.to_thread(spectrogram.render_result, chunk),
     )
     identity_match = (
         cosine_similarity(prediction.embedding, session.enrollment)
@@ -283,7 +285,12 @@ async def process_chunk(session: SessionState, chunk: AudioChunk) -> dict[str, o
         "risk_score": round(risk.raw_score, 4),
         "smoothed_risk": round(risk.smoothed_score, 4),
         "alert_level": risk.alert_level,
-        "spectrogram_png_b64": image,
+        # Backward-compatible top-level PNG key
+        "spectrogram_png_b64": render_output.spectrogram.image_png_b64,
+        # Structured spectrogram metadata (v2)
+        "spectrogram": render_output.spectrogram.as_dict(),
+        # Descriptive acoustic properties (do NOT feed into risk score)
+        "acoustic_features": render_output.features.as_dict(),
         "flagged_region": prediction.flagged_region,
         "identity_match": round(identity_match, 4) if identity_match is not None else None,
         "voice_enrolled": session.enrollment is not None,
@@ -296,7 +303,12 @@ async def process_chunk(session: SessionState, chunk: AudioChunk) -> dict[str, o
         },
         "processing_ms": round((time.perf_counter() - started) * 1000, 1),
     }
-    session.latest = {key: value for key, value in payload.items() if key != "spectrogram_png_b64"}
+    # Exclude large binary and redundant structured keys from the session snapshot
+    session.latest = {
+        key: value
+        for key, value in payload.items()
+        if key not in ("spectrogram_png_b64", "spectrogram")
+    }
     return payload
 
 
