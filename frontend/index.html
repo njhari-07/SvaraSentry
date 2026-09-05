@@ -11,6 +11,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/static/style.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   </head>
   <body>
     <div class="ambient ambient-one"></div>
@@ -50,6 +51,10 @@
               <span>Analyze a file</span>
               <input id="audio-file" type="file" accept="audio/*,.wav,.flac,.mp3,.m4a,.ogg" />
             </label>
+            <button id="phone-button" class="button secondary" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+              <span>Connect phone</span>
+            </button>
             <button id="stop-button" class="button danger" type="button" hidden>Stop stream</button>
           </div>
           <p id="source-status" class="source-status" role="status">Audio stays in this session and is not saved by the server.</p>
@@ -174,6 +179,17 @@
         <label class="dropzone" for="enrollment-file"><strong>Choose reference audio</strong><span>WAV or FLAC · up to 25 MB</span><input id="enrollment-file" type="file" accept="audio/wav,audio/flac,.wav,.flac" /></label>
         <p id="enroll-status" class="dialog-status" role="status"></p>
         <div class="dialog-actions"><button id="remove-enrollment" class="button ghost" type="button">Remove enrollment</button><button class="button secondary" value="cancel">Done</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="pairing-dialog">
+      <form method="dialog" class="dialog-card">
+        <button class="dialog-close" value="cancel" aria-label="Close">×</button>
+        <h2>Connect phone relay</h2>
+        <p>Scan this QR code with your phone to use it as a live microphone. This pairing link expires in 2 minutes.</p>
+        <div id="qrcode-container" style="display: flex; justify-content: center; margin: 1.5rem 0; padding: 1rem; background: white; border-radius: 8px;"></div>
+        <a id="pairing-link" href="#" target="_blank" style="display: block; text-align: center; word-break: break-all; font-size: 0.9em; margin-bottom: 1rem; color: var(--accent);"></a>
+        <div class="dialog-actions"><button class="button secondary" value="cancel">Close</button></div>
       </form>
     </dialog>
 

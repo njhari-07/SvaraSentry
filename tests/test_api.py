@@ -75,6 +75,26 @@ class APITests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 422)
 
+    def test_pairing_token_flow(self):
+        session = "pairing-test"
+        response = self.client.post(f"/api/sessions/{session}/pairing-token")
+        self.assertEqual(response.status_code, 200)
+        token = response.json()["token"]
+        self.assertTrue(token)
+
+        # Connect with token
+        with self.client.websocket_connect(f"/ws/audio/pair/{token}") as socket:
+            socket.send_bytes(bytes(8_000))
+            result = socket.receive_json()
+        
+        self.assertEqual(result["type"], "result")
+        self.assertEqual(result["chunk_index"], 1)
+        
+        # Token should be consumed, connecting again should fail
+        with self.assertRaises(Exception):
+            with self.client.websocket_connect(f"/ws/audio/pair/{token}"):
+                pass
+
 
 if __name__ == "__main__":
     unittest.main()

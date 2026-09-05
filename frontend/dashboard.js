@@ -75,8 +75,25 @@ function handleMessage(message) {
     if (message.latest) renderResult(message.latest);
   }
   if (message.type === "source") setSourceConnected(message.connected);
+  if (message.type === "source_status") handleSourceStatus(message);
   if (message.type === "enrollment") setIdentity(message.voice_enrolled, null);
   if (message.type === "reset") resetDisplay();
+}
+
+function handleSourceStatus(message) {
+  if (message.source === "phone") {
+    if (message.state === "streaming") {
+      const dialog = $("pairing-dialog");
+      if (dialog && dialog.open) dialog.close();
+      state.activeSource = "phone";
+      let statusStr = "Phone connected";
+      if (message.network_state === "degraded") statusStr += " (Degraded network)";
+      if (message.dropped_frames > 0) statusStr += ` · ${message.dropped_frames} frames dropped`;
+      showActiveSource(statusStr);
+    } else if (message.state === "stopped") {
+      if (state.activeSource === "phone") stopAudio();
+    }
+  }
 }
 
 function renderResult(result) {
@@ -286,6 +303,7 @@ async function stopAudio(updateStatus = true) {
   Object.assign(state, { processor: null, mediaStream: null, audioContext: null, audioSocket: null });
   $("mic-button").hidden = false;
   document.querySelector("label[for='audio-file']").hidden = false;
+  $("phone-button").hidden = false;
   $("stop-button").hidden = true;
   if (updateStatus) $("source-status").textContent = "Audio stream stopped.";
 }
@@ -293,6 +311,7 @@ async function stopAudio(updateStatus = true) {
 function showActiveSource(status) {
   $("mic-button").hidden = true;
   document.querySelector("label[for='audio-file']").hidden = true;
+  $("phone-button").hidden = true;
   $("stop-button").hidden = false;
   $("source-status").textContent = status;
 }
@@ -381,6 +400,31 @@ function drawTimeline() {
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const titleCase = (value) => value ? value[0].toUpperCase() + value.slice(1) : "Unknown";
 $("mic-button").addEventListener("click", startMicrophone);
+$("phone-button").addEventListener("click", async () => {
+  try {
+    const response = await fetch(`/api/sessions/${encodeURIComponent(sessionId())}/pairing-token`, { method: "POST" });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "Could not generate pairing token");
+    
+    const pairingUrl = new URL(`/phone?pair=${data.token}`, location.href).toString();
+    const qrContainer = $("qrcode-container");
+    qrContainer.innerHTML = "";
+    new QRCode(qrContainer, {
+      text: pairingUrl,
+      width: 200,
+      height: 200,
+      colorDark : "#000000",
+      colorLight : "#ffffff",
+      correctLevel : QRCode.CorrectLevel.H
+    });
+    
+    $("pairing-link").href = pairingUrl;
+    $("pairing-link").textContent = pairingUrl;
+    $("pairing-dialog").showModal();
+  } catch (err) {
+    $("source-status").textContent = err.message;
+  }
+});
 $("stop-button").addEventListener("click", () => stopAudio());
 $("audio-file").addEventListener("change", ({ target }) => { if (target.files[0]) streamFile(target.files[0]); target.value = ""; });
 $("session").addEventListener("change", async () => { await stopAudio(false); resetDisplay(); connectMonitor(); });

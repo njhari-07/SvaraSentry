@@ -26,6 +26,7 @@ from fastapi.staticfiles import StaticFiles
 from backend.audio_io import decode_audio
 from backend.config import Settings
 from backend.inference import InferenceEngine, create_inference_engine
+from backend.pairing import pairing_manager
 from backend.risk_engine import RiskEngine
 from backend.spectrogram import SpectrogramRenderer, cosine_similarity, SpectrogramConfig
 from backend.streaming import AudioChunk, PCMChunker
@@ -191,7 +192,16 @@ async def session_detail(session_id: str) -> dict[str, object]:
 async def reset_session(session_id: str) -> dict[str, str]:
     get_session(session_id).reset_stream()
     await broadcast(session_id, {"type": "reset", "session_id": session_id})
+    # Also invalidate any pending pairing tokens when session resets
+    pairing_manager.invalidate_session(session_id)
     return {"status": "reset"}
+
+
+@app.post("/api/sessions/{session_id}/pairing-token")
+async def create_pairing_token(session_id: str) -> dict[str, str]:
+    get_session(session_id)  # Ensure session exists
+    token = pairing_manager.generate(session_id)
+    return {"token": token}
 
 
 @app.post("/api/sessions/{session_id}/enrollment")
@@ -327,6 +337,14 @@ async def audio_socket(websocket: WebSocket, session_id: str) -> None:
     session.audio_connected = True
     session.reset_stream()
     await broadcast(session_id, {"type": "source", "connected": True})
+    await broadcast(session_id, {
+        "type": "source_status",
+        "session_id": session_id,
+        "source": "dashboard",
+        "state": "streaming",
+        "connected_at": time.time(),
+        "network_state": "healthy"
+    })
     try:
         while True:
             message = await websocket.receive()
@@ -350,3 +368,93 @@ async def audio_socket(websocket: WebSocket, session_id: str) -> None:
         session.audio_connected = False
         session.updated_at = time.time()
         await broadcast(session_id, {"type": "source", "connected": False})
+        await broadcast(session_id, {
+            "type": "source_status",
+            "session_id": session_id,
+            "source": "dashboard",
+            "state": "stopped",
+            "connected_at": time.time(),
+            "network_state": "disconnected"
+        })
+
+
+@app.websocket("/ws/audio/pair/{token}")
+async def paired_audio_socket(websocket: WebSocket, token: str) -> None:
+    try:
+        session_id = pairing_manager.validate_and_consume(token)
+        session = get_session(session_id)
+    except ValueError as exc:
+        await websocket.close(code=1008, reason=str(exc))
+        return
+    await websocket.accept()
+    if session.audio_connected:
+        await websocket.send_json({"type": "error", "message": "An audio source is already connected"})
+        await websocket.close(code=1008, reason="Session busy")
+        return
+    session.audio_connected = True
+    session.reset_stream()
+    connected_at = time.time()
+    await broadcast(session_id, {"type": "source", "connected": True})
+    await broadcast(session_id, {
+        "type": "source_status",
+        "session_id": session_id,
+        "source": "phone",
+        "state": "streaming",
+        "connected_at": connected_at,
+        "network_state": "healthy"
+    })
+    
+    # Store network health
+    dropped_frames = 0
+    
+    try:
+        while True:
+            message = await websocket.receive()
+            if message["type"] == "websocket.disconnect":
+                break
+            # Handle text messages (like status updates from phone)
+            if "text" in message:
+                try:
+                    data = json.loads(message["text"])
+                    if data.get("type") == "status":
+                        dropped_frames = data.get("dropped_frames", dropped_frames)
+                        await broadcast(session_id, {
+                            "type": "source_status",
+                            "session_id": session_id,
+                            "source": "phone",
+                            "state": "streaming",
+                            "connected_at": connected_at,
+                            "dropped_frames": dropped_frames,
+                            "network_state": "healthy" if dropped_frames < 5 else "degraded"
+                        })
+                except Exception:
+                    pass
+                continue
+                
+            if frame := message.get("bytes"):
+                try:
+                    if len(frame) > settings.max_frame_bytes:
+                        raise ValueError("audio frame exceeds the configured size limit")
+                    async with session.lock:
+                        chunks = session.chunker.push(frame)
+                        for chunk in chunks:
+                            payload = await process_chunk(session, chunk)
+                            await websocket.send_json(payload)
+                            await broadcast(session_id, payload)
+                except ValueError as exc:
+                    await websocket.send_json({"type": "error", "message": str(exc)})
+    except WebSocketDisconnect:
+        pass
+    finally:
+        session.audio_connected = False
+        session.updated_at = time.time()
+        await broadcast(session_id, {"type": "source", "connected": False})
+        await broadcast(session_id, {
+            "type": "source_status",
+            "session_id": session_id,
+            "source": "phone",
+            "state": "stopped",
+            "connected_at": connected_at,
+            "dropped_frames": dropped_frames,
+            "network_state": "disconnected"
+        })

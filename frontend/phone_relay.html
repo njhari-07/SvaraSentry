@@ -13,16 +13,20 @@
       <header><span class="mark"><i></i><i></i><i></i></span><strong>Svara<span>Sentry</span></strong><small>PHONE RELAY</small></header>
       <section class="relay-card">
         <div id="orb" class="orb"><span class="mic-icon">●</span><i></i><i></i><i></i></div>
-        <p id="relay-state" class="relay-state">Ready to relay</p>
-        <p id="relay-copy" class="relay-copy">Keep this page open during the call. Audio is analyzed live and is not saved.</p>
-        <label><span>Dashboard session</span><input id="relay-session" value="demo-1" maxlength="80" autocomplete="off" /></label>
-        <button id="relay-button" type="button">Start microphone relay</button>
-        <p id="secure-note" class="secure-note" hidden>Microphone access on a phone requires HTTPS. Open this page through your secure demo URL.</p>
+        <p id="relay-state" class="relay-state">Initializing</p>
+        <p id="relay-copy" class="relay-copy">Please wait...</p>
+        <div id="stats" hidden>
+            <p>Input Level: <span id="stat-level">-</span> dBFS</p>
+            <p>Elapsed Time: <span id="stat-time">00:00</span></p>
+            <p>Connection: <span id="stat-conn">Disconnected</span></p>
+            <p>Dropped Frames: <span id="stat-dropped">0</span></p>
+        </div>
+        <button id="relay-button" type="button" hidden>Start relay</button>
+        <p id="secure-note" class="secure-note" hidden>Microphone access on a phone requires HTTPS. Open this page through your secure URL.</p>
+        <p id="privacy-note" style="font-size: 0.8em; opacity: 0.8; margin-top: 1rem;">Audio is sent securely to the dashboard for live analysis and is not stored or recorded.</p>
       </section>
-      <section class="steps"><span>1</span><p><strong>Match the session ID</strong>Use the same ID shown on the dashboard.</p><span>2</span><p><strong>Start the relay</strong>Allow microphone access when your browser asks.</p><span>3</span><p><strong>Watch the dashboard</strong>Scores update there about once per second.</p></section>
       <a class="dashboard-link" href="/">Open dashboard</a>
     </main>
     <script src="/static/phone_relay.js"></script>
   </body>
 </html>
-

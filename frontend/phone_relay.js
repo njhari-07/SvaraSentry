@@ -1,52 +1,240 @@
 const button = document.getElementById("relay-button");
-const sessionInput = document.getElementById("relay-session");
 const stateLabel = document.getElementById("relay-state");
 const copy = document.getElementById("relay-copy");
 const orb = document.getElementById("orb");
-let socket = null, context = null, stream = null, processor = null;
-let targetRate = 16000;
 
-const querySession = new URLSearchParams(location.search).get("session");
-if (querySession) sessionInput.value = querySession;
-if (!window.isSecureContext && location.hostname !== "localhost") document.getElementById("secure-note").hidden = false;
+const statLevel = document.getElementById("stat-level");
+const statTime = document.getElementById("stat-time");
+const statConn = document.getElementById("stat-conn");
+const statDropped = document.getElementById("stat-dropped");
+const statsDiv = document.getElementById("stats");
+
+let socket = null, context = null, stream = null, processor = null, wakeLock = null;
+let targetRate = 16000;
+let connectionState = "idle"; // idle -> requesting_permission -> connecting -> streaming -> reconnecting -> stopping -> stopped
+let reconnectAttempts = 0;
+let maxReconnectAttempts = 5;
+let startTime = null;
+let timerInterval = null;
+let droppedFrames = 0;
+
+const pairingToken = new URLSearchParams(location.search).get("pair");
+
+if (!window.isSecureContext && location.hostname !== "localhost") {
+  document.getElementById("secure-note").hidden = false;
+  setState("actionable_error", "Insecure Context", "Microphone access requires HTTPS.");
+} else if (!pairingToken) {
+  setState("actionable_error", "Missing Token", "No pairing token found in URL. Please scan the QR code from the dashboard again.");
+} else {
+  setState("idle", "Ready to relay", "Tap below to share your microphone with the dashboard.");
+  button.hidden = false;
+}
+
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+  const s = (seconds % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+function updateTimer() {
+  if (startTime) {
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    statTime.textContent = formatTime(elapsed);
+  }
+}
+
+function setState(newState, title, desc) {
+  connectionState = newState;
+  stateLabel.textContent = title;
+  copy.textContent = desc;
+  
+  if (newState === "idle" || newState === "actionable_error" || newState === "stopped") {
+    button.textContent = "Start relay";
+    button.className = "";
+    orb.className = "orb";
+    statsDiv.hidden = true;
+  } else if (newState === "streaming") {
+    button.textContent = "Stop relay";
+    button.className = "stop";
+    orb.className = "orb live";
+    statsDiv.hidden = false;
+  } else if (newState === "reconnecting") {
+    button.textContent = "Cancel reconnect";
+    button.className = "stop";
+    orb.className = "orb reconnect";
+    statsDiv.hidden = false;
+  }
+}
+
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => {
+        console.log('Wake Lock was released');
+      });
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function releaseWakeLock() {
+  if (wakeLock) {
+    wakeLock.release();
+    wakeLock = null;
+  }
+}
 
 async function start() {
+  if (connectionState === "streaming" || connectionState === "connecting") return;
+  setState("requesting_permission", "Requesting Microphone", "Please allow microphone access.");
+  
   try {
     const config = await fetch("/api/config").then((response) => response.json());
     targetRate = config.sample_rate;
+    
     stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 }, video: false });
-    const protocol = location.protocol === "https:" ? "wss" : "ws";
-    const session = encodeURIComponent(sessionInput.value.trim() || "demo-1");
-    socket = new WebSocket(`${protocol}://${location.host}/ws/audio/${session}`);
-    await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = () => reject(new Error("Could not reach the dashboard server")); });
-    context = new AudioContext();
-    const source = context.createMediaStreamSource(stream);
-    processor = context.createScriptProcessor(4096, 1, 1);
-    const silent = context.createGain(); silent.gain.value = 0;
-    processor.onaudioprocess = ({ inputBuffer }) => {
-      if (socket.readyState !== WebSocket.OPEN || socket.bufferedAmount > targetRate * 8) return;
-      socket.send(toPcm(resample(inputBuffer.getChannelData(0), context.sampleRate, targetRate)));
+    await connectWebSocket();
+  } catch (error) {
+    setState("actionable_error", "Permission Denied", "Microphone access was denied or no microphone was found.");
+    await cleanup();
+  }
+}
+
+async function connectWebSocket() {
+  setState("connecting", "Connecting", "Connecting to dashboard...");
+  const protocol = location.protocol === "https:" ? "wss" : "ws";
+  
+  return new Promise((resolve, reject) => {
+    socket = new WebSocket(`${protocol}://${location.host}/ws/audio/pair/${pairingToken}`);
+    socket.binaryType = "arraybuffer";
+    
+    socket.onopen = async () => {
+      reconnectAttempts = 0;
+      await setupAudioProcessing();
+      resolve();
     };
-    source.connect(processor); processor.connect(silent); silent.connect(context.destination);
-    sessionInput.disabled = true; button.textContent = "Stop relay"; button.className = "stop"; orb.className = "orb live";
-    stateLabel.textContent = "Relaying securely"; copy.textContent = `Live audio is feeding session “${sessionInput.value}”. Keep this screen awake.`;
-  } catch (error) { stateLabel.textContent = "Could not start"; copy.textContent = error.message; await stop(); }
+    
+    socket.onmessage = (msg) => {
+      try {
+        const data = JSON.parse(msg.data);
+        if (data.type === "error") {
+            setState("actionable_error", "Connection Error", data.message);
+            stop();
+        }
+      } catch (e) {}
+    };
+    
+    socket.onerror = () => {
+      if (connectionState === "connecting") {
+        reject(new Error("Could not reach the dashboard server"));
+      }
+    };
+    
+    socket.onclose = async (event) => {
+      if (connectionState === "stopping" || connectionState === "stopped" || connectionState === "actionable_error") return;
+      if (event.code === 1008) {
+         setState("actionable_error", "Session Error", event.reason || "Invalid pairing token or session full.");
+         await cleanup();
+         return;
+      }
+      handleDisconnect();
+    };
+  });
+}
+
+async function setupAudioProcessing() {
+  try {
+    context = new AudioContext();
+    await context.audioWorklet.addModule("/static/audio_processor.js");
+    
+    const source = context.createMediaStreamSource(stream);
+    processor = new AudioWorkletNode(context, 'relay-processor', {
+      processorOptions: { targetRate }
+    });
+    
+    processor.port.onmessage = (event) => {
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        if (socket.bufferedAmount > targetRate * 2 * 4) { // 4 seconds of PCM16 (targetRate is sample rate, x2 for 16-bit, x4 seconds)
+           droppedFrames++;
+           statDropped.textContent = droppedFrames;
+        } else {
+           socket.send(event.data.buffer);
+        }
+        
+        statLevel.textContent = Math.round(event.data.dbfs);
+        // Also periodically send status updates
+        if (Math.random() < 0.05) {
+            socket.send(JSON.stringify({ type: "status", dropped_frames: droppedFrames }));
+        }
+      }
+    };
+    
+    source.connect(processor);
+    processor.connect(context.destination);
+    
+    setState("streaming", "Relaying securely", "Live audio is feeding the session.");
+    statConn.textContent = "Healthy";
+    startTime = Date.now();
+    timerInterval = setInterval(updateTimer, 1000);
+    await requestWakeLock();
+  } catch (err) {
+    setState("actionable_error", "Audio Error", "Failed to setup audio processing.");
+    await cleanup();
+  }
+}
+
+async function handleDisconnect() {
+  if (reconnectAttempts >= maxReconnectAttempts) {
+    setState("actionable_error", "Disconnected", "Lost connection to the dashboard and could not reconnect.");
+    await cleanup();
+    return;
+  }
+  
+  reconnectAttempts++;
+  setState("reconnecting", "Reconnecting", `Attempt ${reconnectAttempts} of ${maxReconnectAttempts}...`);
+  statConn.textContent = "Reconnecting...";
+  
+  const backoffDelay = Math.min(1000 * Math.pow(2, reconnectAttempts) + Math.random() * 500, 10000);
+  setTimeout(() => {
+    if (connectionState === "reconnecting") {
+      connectWebSocket().catch(() => handleDisconnect());
+    }
+  }, backoffDelay);
 }
 
 async function stop() {
-  processor?.disconnect(); stream?.getTracks().forEach((track) => track.stop());
-  if (context && context.state !== "closed") await context.close(); socket?.close();
-  socket = context = stream = processor = null; sessionInput.disabled = false; button.textContent = "Start microphone relay"; button.className = ""; orb.className = "orb";
-  if (stateLabel.textContent !== "Could not start") { stateLabel.textContent = "Relay stopped"; copy.textContent = "Audio is no longer being sent to the dashboard."; }
+  setState("stopping", "Stopping", "Cleaning up...");
+  await cleanup();
+  if (connectionState !== "actionable_error") {
+    setState("stopped", "Relay stopped", "Audio is no longer being sent to the dashboard.");
+  }
 }
 
-function resample(input, sourceRate, outputRate) {
-  if (sourceRate === outputRate) return new Float32Array(input);
-  const output = new Float32Array(Math.round(input.length * outputRate / sourceRate)); const ratio = sourceRate / outputRate;
-  for (let index = 0; index < output.length; index++) { const position = index * ratio, left = Math.floor(position), mix = position - left; output[index] = input[left] * (1 - mix) + (input[Math.min(left + 1, input.length - 1)] || 0) * mix; }
-  return output;
+async function cleanup() {
+  processor?.disconnect();
+  stream?.getTracks().forEach((track) => track.stop());
+  if (context && context.state !== "closed") await context.close();
+  socket?.close();
+  clearInterval(timerInterval);
+  releaseWakeLock();
+  
+  socket = context = stream = processor = null;
+  startTime = null;
 }
-function toPcm(samples) { const pcm = new Int16Array(samples.length); for (let index = 0; index < samples.length; index++) { const value = Math.max(-1, Math.min(1, samples[index])); pcm[index] = value < 0 ? value * 32768 : value * 32767; } return pcm.buffer; }
-button.addEventListener("click", () => socket ? stop() : start());
+
+button.addEventListener("click", () => {
+  if (connectionState === "idle" || connectionState === "actionable_error" || connectionState === "stopped") {
+    start();
+  } else {
+    stop();
+  }
+});
+
 window.addEventListener("beforeunload", stop);
-
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === 'visible' && connectionState === "streaming") {
+    requestWakeLock();
+  }
+});

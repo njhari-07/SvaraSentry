@@ -11,3 +11,9 @@ label { display: block; text-align: left; } label span { display: block; margin:
 @keyframes ring { from { transform: scale(1); opacity: .55; } to { transform: scale(1.7); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
 
+#stats { margin: 10px 0 20px; background: rgba(0, 0, 0, 0.2); padding: 15px; border-radius: 12px; text-align: left; font-size: 0.9rem; color: #a3c4b9; }
+#stats p { margin: 5px 0; display: flex; justify-content: space-between; }
+#stats span { font-weight: 600; color: #52dfb0; }
+
+.orb.reconnect { background: #f4c75d; box-shadow: 0 0 0 13px #f4c75d14, 0 0 50px #f4c75d35; color: #111; }
+.orb.reconnect > i { border-color: #ffe699; animation: ring 1.5s infinite; }

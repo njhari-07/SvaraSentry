@@ -22,6 +22,7 @@ class Settings:
     session_ttl_seconds: int = 3_600
     max_sessions: int = 200
     max_frame_bytes: int = 64_000
+    pairing_token_ttl_seconds: int = 120
     model_mode: str = "baseline"
     checkpoint_path: Path = Path("training/checkpoints/model.pt")
 
@@ -37,6 +38,7 @@ class Settings:
             session_ttl_seconds=int(os.getenv("SVARASENTRY_SESSION_TTL_SECONDS", "3600")),
             max_sessions=int(os.getenv("SVARASENTRY_MAX_SESSIONS", "200")),
             max_frame_bytes=int(os.getenv("SVARASENTRY_MAX_FRAME_BYTES", "64000")),
+            pairing_token_ttl_seconds=int(os.getenv("SVARASENTRY_PAIRING_TOKEN_TTL_SECONDS", "120")),
             model_mode=os.getenv("SVARASENTRY_MODEL_MODE", "baseline").lower(),
             checkpoint_path=Path(
                 os.getenv("SVARASENTRY_CHECKPOINT", "training/checkpoints/model.pt")
