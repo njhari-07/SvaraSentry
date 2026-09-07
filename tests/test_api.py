@@ -31,9 +31,26 @@ class APITests(unittest.TestCase):
         self.assertEqual(config.json()["sample_rate"], 16_000)
         self.assertTrue(config.json()["baseline_disclaimer"])
 
-    def test_product_surfaces_are_served(self):
-        self.assertIn("SvaraSentry", self.client.get("/").text)
-        self.assertIn("Phone relay", self.client.get("/phone").text)
+    def test_product_surfaces_redirect_to_the_next_frontend(self):
+        dashboard = self.client.get("/", follow_redirects=False)
+        phone = self.client.get("/phone", follow_redirects=False)
+
+        self.assertEqual(dashboard.status_code, 307)
+        self.assertEqual(dashboard.headers["location"], "http://localhost:3000")
+        self.assertEqual(phone.status_code, 307)
+        self.assertEqual(phone.headers["location"], "http://localhost:3000/phone")
+
+    def test_next_frontend_origin_is_allowed_by_cors(self):
+        response = self.client.options(
+            "/api/config",
+            headers={
+                "Origin": "http://localhost:3000",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["access-control-allow-origin"], "http://localhost:3000")
 
     def test_audio_socket_emits_complete_result_contract(self):
         with self.client.websocket_connect("/ws/audio/api-test") as socket:

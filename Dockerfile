@@ -19,7 +19,6 @@ COPY data_pipeline ./data_pipeline
 COPY training ./training
 RUN python -m pip install --no-cache-dir --no-deps . && rm -rf build
 
-COPY frontend ./frontend
 RUN useradd --create-home --uid 10001 appuser \
     && mkdir -p /app/data /app/training/checkpoints \
     && chown -R appuser:appuser /app
@@ -47,3 +46,31 @@ RUN python -m pip install --no-cache-dir \
 COPY tests ./tests
 USER appuser
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+FROM node:24-alpine AS frontend-dependencies
+WORKDIR /app/frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+
+FROM frontend-dependencies AS frontend-development
+COPY frontend ./
+EXPOSE 3000
+CMD ["npm", "run", "dev", "--", "--hostname", "0.0.0.0"]
+
+FROM frontend-dependencies AS frontend-build
+COPY frontend ./
+ARG NEXT_PUBLIC_API_BASE=http://localhost:8000
+ARG NEXT_PUBLIC_PUBLIC_ORIGIN=http://localhost:3000
+ENV NEXT_PUBLIC_API_BASE=$NEXT_PUBLIC_API_BASE \
+    NEXT_PUBLIC_PUBLIC_ORIGIN=$NEXT_PUBLIC_PUBLIC_ORIGIN
+RUN npm run build
+
+FROM node:24-alpine AS frontend-runtime
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=frontend-build /app/frontend/.next/standalone ./
+COPY --from=frontend-build /app/frontend/.next/static ./.next/static
+COPY --from=frontend-build /app/frontend/public ./public
+USER node
+EXPOSE 3000
+CMD ["node", "server.js"]

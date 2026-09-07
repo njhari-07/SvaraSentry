@@ -4,6 +4,9 @@
 !.env.example
 .venv/
 venv/
+frontend/node_modules/
+frontend/.next/
+frontend/tsconfig.tsbuildinfo
 
 # Python caches, test output, and build artifacts
 __pycache__/

@@ -11,6 +11,13 @@ def _float(name: str, default: float) -> float:
     return float(os.getenv(name, default))
 
 
+def _origins(name: str, default: tuple[str, ...]) -> tuple[str, ...]:
+    value = os.getenv(name)
+    if not value:
+        return default
+    return tuple(origin.strip().rstrip("/") for origin in value.split(",") if origin.strip())
+
+
 @dataclass(frozen=True, slots=True)
 class Settings:
     sample_rate: int = 16_000
@@ -25,6 +32,8 @@ class Settings:
     pairing_token_ttl_seconds: int = 120
     model_mode: str = "baseline"
     checkpoint_path: Path = Path("training/checkpoints/model.pt")
+    frontend_origin: str = "http://localhost:3000"
+    cors_origins: tuple[str, ...] = ("http://localhost:3000", "http://127.0.0.1:3000")
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -42,5 +51,10 @@ class Settings:
             model_mode=os.getenv("SVARASENTRY_MODEL_MODE", "baseline").lower(),
             checkpoint_path=Path(
                 os.getenv("SVARASENTRY_CHECKPOINT", "training/checkpoints/model.pt")
+            ),
+            frontend_origin=os.getenv("SVARASENTRY_FRONTEND_ORIGIN", "http://localhost:3000").rstrip("/"),
+            cors_origins=_origins(
+                "SVARASENTRY_CORS_ORIGINS",
+                ("http://localhost:3000", "http://127.0.0.1:3000"),
             ),
         )

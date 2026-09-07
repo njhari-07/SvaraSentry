@@ -12,9 +12,32 @@ services:
       SVARASENTRY_MAX_SESSIONS: ${SVARASENTRY_MAX_SESSIONS:-200}
       SVARASENTRY_CAUTION_THRESHOLD: ${SVARASENTRY_CAUTION_THRESHOLD:-0.55}
       SVARASENTRY_HIGH_THRESHOLD: ${SVARASENTRY_HIGH_THRESHOLD:-0.75}
+      SVARASENTRY_FRONTEND_ORIGIN: ${SVARASENTRY_FRONTEND_ORIGIN:-http://localhost:3000}
+      SVARASENTRY_CORS_ORIGINS: ${SVARASENTRY_CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
     read_only: true
     tmpfs:
       - /tmp:size=128m,mode=1777
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    init: true
+    restart: unless-stopped
+
+  frontend-prod:
+    build:
+      context: .
+      target: frontend-runtime
+      args:
+        NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-http://localhost:8000}
+        NEXT_PUBLIC_PUBLIC_ORIGIN: ${NEXT_PUBLIC_PUBLIC_ORIGIN:-http://localhost:3000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      app-prod:
+        condition: service_started
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
     cap_drop: ["ALL"]
     security_opt:
       - no-new-privileges:true

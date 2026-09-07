@@ -30,7 +30,7 @@ credentials, access, or confidential information.
 
 | Layer | Technology |
 |---|---|
-| Web application | HTML5, CSS3, vanilla JavaScript, responsive dashboard, and phone-relay interface |
+| Web application | Next.js, React, TypeScript, responsive dashboard, and phone-relay interface |
 | Browser audio | MediaDevices `getUserMedia`, Web Audio API, AudioContext, and HTML Canvas |
 | API and real-time transport | Python 3.11+, FastAPI, Uvicorn, REST endpoints, and WebSockets |
 | Audio processing | 16 kHz mono PCM16, NumPy, SoundFile/libsndfile, windowing, resampling, and signal-quality analysis |
@@ -666,12 +666,11 @@ SvaraSentry/
 │   ├── audio_io.py             # Audio decoding and resampling
 │   └── config.py               # Environment configuration
 ├── frontend/
-│   ├── index.html              # Monitoring dashboard
-│   ├── dashboard.js            # Audio capture, streaming, and visualization
-│   ├── style.css               # Dashboard presentation
-│   ├── phone_relay.html        # Phone capture interface
-│   ├── phone_relay.js          # Phone PCM transport
-│   └── phone_relay.css
+│   ├── app/                    # Next.js dashboard and phone-relay routes
+│   ├── components/             # Typed React monitoring and relay interfaces
+│   ├── lib/                    # API, WebSocket, and PCM helpers
+│   ├── public/                 # Browser audio-worklet assets
+│   └── package.json            # Frontend scripts and dependencies
 ├── data_pipeline/
 │   └── build_manifest.py       # Labelled audio manifest generation
 ├── training/
@@ -693,17 +692,27 @@ Place the validated artifact at:
 training/checkpoints/model.pt
 ```
 
-Start the ML service:
+Start the ML API and Next.js frontend:
 
 ```bash
-docker compose --profile ml up --build app-ml
+docker compose --profile ml up --build app-ml frontend
 ```
 
 Open:
 
-- Dashboard: <http://127.0.0.1:8000>
-- Phone relay: <http://127.0.0.1:8000/phone>
+- Dashboard: <http://127.0.0.1:3000>
+- Phone relay: <http://127.0.0.1:3000/phone>
 - API documentation: <http://127.0.0.1:8000/docs>
+
+For standard baseline development, use:
+
+```bash
+docker compose up --build app frontend
+```
+
+The browser app is intentionally separate from the FastAPI service. For a phone on the same
+network, set both `NEXT_PUBLIC_API_BASE` and `NEXT_PUBLIC_PUBLIC_ORIGIN` to reachable HTTPS/WSS
+origins before starting the containers; browser microphone access on a phone requires HTTPS.
 
 Verify model readiness:
 
@@ -729,6 +738,8 @@ Run the automated suite:
 ```bash
 docker compose run --rm app python -m pytest
 docker compose run --rm app ruff check backend data_pipeline training tests
+docker compose run --rm frontend npm run typecheck
+docker compose run --rm frontend npm run build
 ```
 
 The system test strategy covers:

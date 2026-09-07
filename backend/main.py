@@ -7,7 +7,6 @@ import json
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Annotated
 
 import numpy as np
@@ -20,8 +19,8 @@ from fastapi import (
     WebSocket,
     WebSocketDisconnect,
 )
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, RedirectResponse
 
 from backend.audio_io import decode_audio
 from backend.config import Settings
@@ -31,8 +30,6 @@ from backend.risk_engine import RiskEngine
 from backend.spectrogram import SpectrogramConfig, SpectrogramRenderer, cosine_similarity
 from backend.streaming import AudioChunk, PCMChunker
 
-ROOT = Path(__file__).resolve().parents[1]
-FRONTEND = ROOT / "frontend"
 settings = Settings.from_env()
 inference: InferenceEngine = create_inference_engine(settings.model_mode, settings.checkpoint_path)
 spectrogram = SpectrogramRenderer(config=SpectrogramConfig(window_seconds=settings.window_seconds))
@@ -93,7 +90,13 @@ app = FastAPI(
     version="0.2.0",
     description="Realtime transport and inference boundary for voice-clone risk analysis.",
 )
-app.mount("/static", StaticFiles(directory=FRONTEND), name="static")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=list(settings.cors_origins),
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.middleware("http")
@@ -141,13 +144,14 @@ def prune_sessions() -> None:
 
 
 @app.get("/", include_in_schema=False)
-async def dashboard() -> FileResponse:
-    return FileResponse(FRONTEND / "index.html")
+async def dashboard() -> RedirectResponse:
+    """Keep the API root useful while the Next.js app owns the dashboard."""
+    return RedirectResponse(settings.frontend_origin)
 
 
 @app.get("/phone", include_in_schema=False)
-async def phone_relay() -> FileResponse:
-    return FileResponse(FRONTEND / "phone_relay.html")
+async def phone_relay() -> RedirectResponse:
+    return RedirectResponse(f"{settings.frontend_origin}/phone")
 
 
 @app.get("/health")
