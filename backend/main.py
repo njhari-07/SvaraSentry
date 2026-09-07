@@ -154,6 +154,11 @@ async def phone_relay() -> RedirectResponse:
     return RedirectResponse(f"{settings.frontend_origin}/phone")
 
 
+@app.get("/app", include_in_schema=False)
+async def app_dashboard() -> RedirectResponse:
+    return RedirectResponse(f"{settings.frontend_origin}/app")
+
+
 @app.get("/health")
 async def health() -> dict[str, object]:
     return {

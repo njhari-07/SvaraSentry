@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   output: "standalone",
   reactStrictMode: true,
   turbopack: {
-    root: __dirname,
+    root: process.cwd(),
   },
 };
 

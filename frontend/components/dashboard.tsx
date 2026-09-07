@@ -9,9 +9,14 @@ import { QRCodeSVG } from "qrcode.react";
 import { delay, floatToPcm16, resample } from "@/lib/audio";
 import { apiUrl, publicUrl, requestJson, websocketUrl } from "@/lib/api";
 import type { AlertLevel, AnalysisResult, DashboardMessage, RuntimeConfig } from "@/lib/types";
+import { WelcomeModal } from "@/components/WelcomeModal";
 
 type EventItem = { level: AlertLevel; title: string; copy: string; time: string };
 type TrendPoint = { raw: number; risk: number };
+
+export interface DashboardProps {
+  onBackToLanding?: () => void;
+}
 
 const DEFAULT_CONFIG: RuntimeConfig = {
   sample_rate: 16_000,
@@ -51,7 +56,7 @@ function Clock() {
   return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
-export function Dashboard() {
+export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
   const [config, setConfig] = useState<RuntimeConfig>(DEFAULT_CONFIG);
   const [sessionId, setSessionId] = useState("demo-1");
   const [sessionInput, setSessionInput] = useState("demo-1");
@@ -65,6 +70,8 @@ export function Dashboard() {
   const [enrollStatus, setEnrollStatus] = useState("");
   const [pairingUrl, setPairingUrl] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [modalStep, setModalStep] = useState(1);
 
   const monitorSocket = useRef<WebSocket | null>(null);
   const audioSocket = useRef<WebSocket | null>(null);
@@ -298,33 +305,168 @@ export function Dashboard() {
     }
   }
 
+  function handleStartMicrophoneClick() {
+    setModalStep(1);
+    setShowWelcomeModal(true);
+  }
+
+  function handleModalConfirm() {
+    if (modalStep === 1) {
+      setModalStep(2);
+    } else {
+      setShowWelcomeModal(false);
+      void startMicrophone();
+    }
+  }
+
   return (
     <main className="shell">
+      {/* Welcome Onboarding Modal with Woven Textile Illustration */}
+      <WelcomeModal
+        isOpen={showWelcomeModal}
+        onClose={() => setShowWelcomeModal(false)}
+        onConfirm={handleModalConfirm}
+        illustrationColor="blue"
+        eyebrow="Acoustic Defense"
+        title={modalStep === 1 ? "Live Voice Analysis" : "Microphone Authorization"}
+        subtitle={
+          modalStep === 1
+            ? "Continuous acoustic voice clone monitoring and deepfake defense"
+            : "Activate your local browser microphone input to begin real-time analysis"
+        }
+        currentStep={modalStep}
+        totalSteps={2}
+        actionLabel={modalStep === 1 ? "Next" : "Start Monitoring"}
+        bullets={
+          modalStep === 1
+            ? [
+                {
+                  icon: (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9" />
+                      <path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5" />
+                      <circle cx="12" cy="12" r="2" />
+                      <path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5" />
+                      <path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1" />
+                    </svg>
+                  ),
+                  text: "Real-time acoustic stream analysis over continuous 3-second stride windows",
+                },
+                {
+                  icon: (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                      <path d="m9 12 2 2 4-4" />
+                    </svg>
+                  ),
+                  text: "Dual-branch neural spoof detection and instant clone risk scoring",
+                },
+              ]
+            : [
+                {
+                  icon: (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                  ),
+                  text: "Audio stays in this session and is processed locally without server persistence",
+                },
+                {
+                  icon: (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                    </svg>
+                  ),
+                  text: "Spectrogram and session trend graphs generate automatically after first window",
+                },
+              ]
+        }
+      />
+
       <header className="topbar">
-        <Link className="brand" href="/" aria-label="SvaraSentry home"><span className="brand-mark" aria-hidden>|||</span><span>Svara<span>Sentry</span></span></Link>
+        <Link className="brand" href="/" aria-label="SvaraSentry home">
+          <span className="brand-mark" aria-hidden>
+            <i style={{ height: "10px" }} />
+            <i style={{ height: "20px", animationDelay: "-0.3s" }} />
+            <i style={{ height: "14px", animationDelay: "-0.7s" }} />
+          </span>
+          <span>Svara<span>Sentry</span></span>
+        </Link>
         <div className="topbar-actions">
-          <label className="session-field"><span>SESSION</span><input value={sessionInput} maxLength={80} onChange={(event) => setSessionInput(event.target.value)} onBlur={() => void changeSession()} /></label>
+          {onBackToLanding && (
+            <button
+              type="button"
+              className="button secondary"
+              onClick={onBackToLanding}
+              style={{ padding: "6px 14px", fontSize: "12px", display: "inline-flex", alignItems: "center", gap: "6px" }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12" />
+                <polyline points="12 19 5 12 12 5" />
+              </svg>
+              <span>Back to Landing</span>
+            </button>
+          )}
+          <label className="session-field">
+            <span>SESSION</span>
+            <input value={sessionInput} maxLength={80} onChange={(event) => setSessionInput(event.target.value)} onBlur={() => void changeSession()} />
+          </label>
           <span className={`connection ${connection}`}><i />{connection === "online" ? "Connected" : connection === "connecting" ? "Connecting" : "Reconnecting"}</span>
         </div>
       </header>
 
-      {config.baseline_disclaimer && <section className="mode-banner"><b>Integration mode.</b> Scores are simulated until a trained checkpoint is loaded.</section>}
+      {config.baseline_disclaimer && (
+        <section className="mode-banner">
+          <b>Integration mode.</b> Scores are simulated until a trained checkpoint is loaded.
+        </section>
+      )}
 
       <section className="decision-panel">
         <div className="decision-copy">
           <span className="section-kicker"><i className={result ? "live-dot" : ""} />LIVE ANALYSIS</span>
-          <h1>{decision[0]}</h1><p>{decision[1]}</p>
+          <h1>{decision[0]}</h1>
+          <p>{decision[1]}</p>
           <div className="source-actions">
-            {!isStreaming && <button className="button primary" type="button" onClick={() => void startMicrophone()}>Start microphone</button>}
-            {!isStreaming && <label className="button secondary">Analyze a file<input type="file" accept="audio/*,.wav,.flac,.mp3,.m4a,.ogg" onChange={(event) => { const file = event.target.files?.[0]; if (file) void streamFile(file); event.target.value = ""; }} /></label>}
+            {!isStreaming && (
+              <button className="button primary" type="button" onClick={handleStartMicrophoneClick}>
+                Start microphone
+              </button>
+            )}
+            {!isStreaming && (
+              <label className="button secondary">
+                Analyze a file
+                <input type="file" accept="audio/*,.wav,.flac,.mp3,.m4a,.ogg" onChange={(event) => { const file = event.target.files?.[0]; if (file) void streamFile(file); event.target.value = ""; }} />
+              </label>
+            )}
             {!isStreaming && <button className="button secondary" type="button" onClick={() => void openPairing()}>Connect phone</button>}
             {isStreaming && <button className="button danger" type="button" onClick={() => void stopAudio()}>Stop stream</button>}
           </div>
           <p className="source-status" role="status">{sourceStatus}</p>
         </div>
         <div className="score-wrap">
-          <div className="gauge" style={{ "--risk": riskPercent ?? 0 } as CSSProperties}><div className="gauge-inner"><strong>{riskPercent ?? "—"}</strong>{riskPercent !== null && <span>%</span>}<small>CLONE RISK</small></div></div>
-          <span className={`risk-badge ${result ? level : "neutral"}`}>{result ? (level === "none" ? "Low risk" : level) : "Waiting"}</span>
+          {/* Decorative Visora Wireframe Globe Ring Pattern */}
+          <svg className="dial-wireframe-globe" viewBox="0 0 260 260" fill="none" aria-hidden="true">
+            <circle cx="130" cy="130" r="124" stroke="currentColor" strokeWidth="0.75" opacity="0.35" />
+            <circle cx="130" cy="130" r="92" stroke="currentColor" strokeWidth="0.75" opacity="0.25" />
+            <circle cx="130" cy="130" r="60" stroke="currentColor" strokeWidth="0.75" opacity="0.2" />
+            <ellipse cx="130" cy="130" rx="124" ry="38" stroke="currentColor" strokeWidth="0.75" opacity="0.25" />
+            <ellipse cx="130" cy="130" rx="124" ry="76" stroke="currentColor" strokeWidth="0.75" opacity="0.25" />
+            <ellipse cx="130" cy="130" rx="38" ry="124" stroke="currentColor" strokeWidth="0.75" opacity="0.25" />
+            <ellipse cx="130" cy="130" rx="76" ry="124" stroke="currentColor" strokeWidth="0.75" opacity="0.25" />
+            <line x1="6" y1="130" x2="254" y2="130" stroke="currentColor" strokeWidth="0.75" opacity="0.25" />
+            <line x1="130" y1="6" x2="130" y2="254" stroke="currentColor" strokeWidth="0.75" opacity="0.25" />
+          </svg>
+          <div className="gauge" style={{ "--risk": riskPercent ?? 0 } as CSSProperties}>
+            <div className="gauge-inner">
+              <strong>{riskPercent ?? "—"}</strong>
+              {riskPercent !== null && <span>%</span>}
+              <small>CLONE RISK</small>
+            </div>
+          </div>
+          <span className={`risk-badge ${result ? level : "neutral"}`}>
+            {result ? (level === "none" ? "Low risk" : level) : "Waiting"}
+          </span>
         </div>
       </section>
 
@@ -336,42 +478,179 @@ export function Dashboard() {
       </section>
 
       <section className="analysis-grid">
-        <article className="panel"><PanelTitle kicker="ACOUSTIC VIEW" title="Spectrogram" /><div className="spectrogram-frame">
-          {result?.spectrogram_png_b64 ? <img src={`data:image/png;base64,${result.spectrogram_png_b64}`} alt="Live audio spectrogram" /> : <p className="empty-state">Spectrogram appears after the first three-second window.</p>}
-          {result?.flagged_region?.time_offset_ms && <span className="attention-region" style={{ left: `${result.flagged_region.time_offset_ms[0] / ((result.spectrogram?.window_seconds ?? 3) * 10)}%`, width: `${(result.flagged_region.time_offset_ms[1] - result.flagged_region.time_offset_ms[0]) / ((result.spectrogram?.window_seconds ?? 3) * 10)}%` }} />}
-        </div>
-        <div className="acoustic-props">{Object.entries(result?.acoustic_features ?? {}).slice(0, 5).map(([key, value]) => <span key={key}><b>{key.replaceAll("_", " ")}</b>{String(value)}</span>)}</div></article>
-        <article className="panel"><PanelTitle kicker="SESSION TREND" title="Risk timeline" right={`${result?.chunk_index ?? 0} windows`} /><RiskChart points={trend} /></article>
+        <article className="panel">
+          <PanelTitle kicker="ACOUSTIC VIEW" title="Spectrogram" />
+          <div className="spectrogram-frame">
+            {result?.spectrogram_png_b64 ? (
+              <img src={`data:image/png;base64,${result.spectrogram_png_b64}`} alt="Live audio spectrogram" />
+            ) : (
+              <p className="empty-state">Spectrogram appears after the first three-second window.</p>
+            )}
+            {result?.flagged_region?.time_offset_ms && (
+              <span
+                className="attention-region"
+                style={{
+                  left: `${result.flagged_region.time_offset_ms[0] / ((result.spectrogram?.window_seconds ?? 3) * 10)}%`,
+                  width: `${(result.flagged_region.time_offset_ms[1] - result.flagged_region.time_offset_ms[0]) / ((result.spectrogram?.window_seconds ?? 3) * 10)}%`,
+                }}
+              />
+            )}
+          </div>
+          <div className="acoustic-props">
+            {Object.entries(result?.acoustic_features ?? {}).slice(0, 5).map(([key, value]) => (
+              <span key={key}>
+                <b>{key.replaceAll("_", " ")}</b>
+                {String(value)}
+              </span>
+            ))}
+          </div>
+        </article>
+        <article className="panel">
+          <PanelTitle kicker="SESSION TREND" title="Risk timeline" right={`${result?.chunk_index ?? 0} windows`} />
+          <RiskChart points={trend} />
+        </article>
       </section>
 
       <section className="bottom-grid">
-        <article className="panel"><PanelTitle kicker="AUDIT TRAIL" title="Session events" action="Reset session" onAction={() => void resetSession()} />
-          <ol className="event-list">{events.length ? events.map((event, index) => <li key={`${event.time}-${index}`} className={event.level}><i /><div><strong>{event.title}</strong><p>{event.copy}</p></div><time>{event.time}</time></li>) : <li className="empty-event"><i /><div><strong>No events yet</strong><p>Risk transitions and identity checks will appear here.</p></div></li>}</ol>
+        <article className="panel">
+          <PanelTitle kicker="AUDIT TRAIL" title="Session events" action="Reset session" onAction={() => void resetSession()} />
+          <ol className="event-list">
+            {events.length ? (
+              events.map((event, index) => (
+                <li key={`${event.time}-${index}`} className={event.level}>
+                  <i />
+                  <div>
+                    <strong>{event.title}</strong>
+                    <p>{event.copy}</p>
+                  </div>
+                  <time>{event.time}</time>
+                </li>
+              ))
+            ) : (
+              <li className="empty-event">
+                <i />
+                <div>
+                  <strong>No events yet</strong>
+                  <p>Risk transitions and identity checks will appear here.</p>
+                </div>
+              </li>
+            )}
+          </ol>
         </article>
-        <aside className={`response-card ${level}`}><span>{level === "none" ? "✓" : level === "caution" ? "!" : "×"}</span><div><small>RECOMMENDED RESPONSE</small><h2>{decision[2]}</h2><p>{decision[3]}</p></div></aside>
+        <aside className={`response-card ${level}`}>
+          <span>{level === "none" ? "✓" : level === "caution" ? "!" : "×"}</span>
+          <div>
+            <small>RECOMMENDED RESPONSE</small>
+            <h2>{decision[2]}</h2>
+            <p>{decision[3]}</p>
+          </div>
+        </aside>
       </section>
-      <footer><span>SvaraSentry</span><span>{config.sample_rate / 1000} kHz · {config.window_seconds}s window · {config.stride_seconds}s stride</span><Link href="/phone">Phone relay</Link><a href={apiUrl("/docs")} target="_blank" rel="noreferrer">API docs</a></footer>
 
-      {enrollOpen && <Modal title="Enroll a trusted voice" onClose={() => setEnrollOpen(false)}><p>Upload at least two seconds of clean WAV or FLAC speech. The reference remains in memory for this session only.</p><label className="dropzone">Choose reference audio<input type="file" accept="audio/wav,audio/flac,.wav,.flac" onChange={enroll} /></label><p role="status">{enrollStatus}</p><div className="modal-actions"><button className="button ghost" type="button" onClick={() => void removeEnrollment()}>Remove enrollment</button><button className="button secondary" type="button" onClick={() => setEnrollOpen(false)}>Done</button></div></Modal>}
-      {pairingUrl && <Modal title="Connect phone relay" onClose={() => setPairingUrl(null)}><p>Scan this QR code with your phone. The pairing link expires in two minutes.</p><div className="qr"><QRCodeSVG value={pairingUrl} size={200} level="H" /></div><a className="pair-link" href={pairingUrl}>{pairingUrl}</a></Modal>}
+      <footer>
+        <span>SvaraSentry</span>
+        <span>{config.sample_rate / 1000} kHz · {config.window_seconds}s window · {config.stride_seconds}s stride</span>
+        <Link href="/phone">Phone relay</Link>
+        <a href={apiUrl("/docs")} target="_blank" rel="noreferrer">API docs</a>
+      </footer>
+
+      {enrollOpen && (
+        <Modal title="Enroll a trusted voice" onClose={() => setEnrollOpen(false)}>
+          <p>Upload at least two seconds of clean WAV or FLAC speech. The reference remains in memory for this session only.</p>
+          <label className="dropzone">
+            Choose reference audio
+            <input type="file" accept="audio/wav,audio/flac,.wav,.flac" onChange={enroll} />
+          </label>
+          <p role="status">{enrollStatus}</p>
+          <div className="modal-actions">
+            <button className="button ghost" type="button" onClick={() => void removeEnrollment()}>Remove enrollment</button>
+            <button className="button secondary" type="button" onClick={() => setEnrollOpen(false)}>Done</button>
+          </div>
+        </Modal>
+      )}
+
+      {pairingUrl && (
+        <Modal title="Connect phone relay" onClose={() => setPairingUrl(null)}>
+          <p>Scan this QR code with your phone. The pairing link expires in two minutes.</p>
+          <div className="qr">
+            <QRCodeSVG value={pairingUrl} size={200} level="H" />
+          </div>
+          <a className="pair-link" href={pairingUrl}>{pairingUrl}</a>
+        </Modal>
+      )}
     </main>
   );
 }
 
 function Metric({ label, value, detail, action, onAction }: { label: string; value: string; detail: string; action?: string; onAction?: () => void }) {
-  return <article className="metric"><div><small>{label}</small><strong>{value}</strong><span>{detail}</span></div>{action && <button className="text-button" type="button" onClick={onAction}>{action}</button>}</article>;
+  return (
+    <article className="metric">
+      <div>
+        <small>{label}</small>
+        <strong>{value}</strong>
+        <span>{detail}</span>
+      </div>
+      {action && <button className="text-button" type="button" onClick={onAction}>{action}</button>}
+    </article>
+  );
 }
 
 function PanelTitle({ kicker, title, right, action, onAction }: { kicker: string; title: string; right?: string; action?: string; onAction?: () => void }) {
-  return <header className="panel-head"><div><small>{kicker}</small><h2>{title}</h2></div>{right && <span className="compact-stat">{right}</span>}{action && <button className="text-button" type="button" onClick={onAction}>{action}</button>}</header>;
+  return (
+    <header className="panel-head">
+      <div>
+        <small>{kicker}</small>
+        <h2>{title}</h2>
+      </div>
+      {right && <span className="compact-stat">{right}</span>}
+      {action && <button className="text-button" type="button" onClick={onAction}>{action}</button>}
+    </header>
+  );
 }
 
 function RiskChart({ points }: { points: TrendPoint[] }) {
-  if (points.length < 2) return <div className="chart-empty">Risk history appears here</div>;
+  if (points.length < 2) {
+    const barHeights = [20, 24, 18, 26, 22, 19, 25, 28, 21, 17, 23, 27, 20, 24, 29, 22, 18, 25, 23, 21, 26, 30, 25, 28, 34, 46, 58, 68, 62, 48, 38, 30, 26, 22, 25, 19, 24, 22, 18, 21];
+    return (
+      <div className="timeline-empty">
+        <div className="ws-bars" aria-hidden="true">
+          {barHeights.map((h, i) => (
+            <div
+              key={i}
+              className={`ws-bar ${h > 50 ? "ws-bar-red" : "ws-bar-blue"}`}
+              style={{ height: `${h}%`, animationDelay: `${i * 0.045}s` }}
+            />
+          ))}
+        </div>
+        <p className="ws-copy">Awaiting session telemetry &amp; risk analysis stream…</p>
+      </div>
+    );
+  }
   const path = points.map((point, index) => `${index ? "L" : "M"}${(index / (points.length - 1)) * 100},${100 - point.risk * 100}`).join(" ");
-  return <svg className="risk-chart" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="Risk score timeline"><line x1="0" x2="100" y1="25" y2="25" /><line x1="0" x2="100" y1="45" y2="45" /><path d={path} /></svg>;
+  return (
+    <svg className="risk-chart" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="Risk score timeline">
+      <defs>
+        <linearGradient id="riskLineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="var(--accent-safe)" />
+          <stop offset="65%" stopColor="var(--accent-caution)" />
+          <stop offset="100%" stopColor="var(--accent-high)" />
+        </linearGradient>
+      </defs>
+      <line x1="0" x2="100" y1="25" y2="25" />
+      <line x1="0" x2="100" y1="45" y2="45" />
+      <path d={path} stroke="url(#riskLineGrad)" />
+    </svg>
+  );
 }
 
 function Modal({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
-  return <div className="modal-backdrop" role="presentation"><section className="modal" role="dialog" aria-modal="true" aria-label={title}><button className="modal-close" type="button" onClick={onClose} aria-label="Close">×</button><h2>{title}</h2>{children}</section></div>;
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <section className="modal" role="dialog" aria-modal="true" aria-label={title}>
+        <button className="modal-close" type="button" onClick={onClose} aria-label="Close">×</button>
+        <h2>{title}</h2>
+        {children}
+      </section>
+    </div>
+  );
 }

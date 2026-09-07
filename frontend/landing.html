@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <meta name="description" content="SvaraSentry — Real-time AI voice-deepfake recognition and continuous acoustic defense platform." />
+  <meta name="theme-color" content="#020617" />
+  <title>SvaraSentry · Real-Time AI Voice Deepfake Defense</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+
+  <!-- Fonts: Space Grotesk, Instrument Serif, JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="/static/landing.css?v=4" />
+</head>
+<body>
+
+  <!-- Real-time WebGL2 Fluid Simulation Canvas -->
+  <canvas id="c"></canvas>
+  <div id="vig"></div>
+  <div id="scrim"></div>
+  <div id="grain"></div>
+
+  <!-- Scroll Progress Indicator -->
+  <div id="prog"></div>
+
+  <!-- Side Navigation Rail -->
+  <div id="idx"></div>
+
+  <!-- Preloader Screen -->
+  <div id="pre">
+    <div id="preCount">0</div>
+    <div id="preWord">Real-time<br>Acoustic Defense</div>
+    <div id="preBar"><i></i></div>
+  </div>
+
+  <!-- Top Sticky Navigation -->
+  <nav>
+    <a href="/" class="brand">
+      <span>SvaraSentry</span><span class="d">.</span>
+      <span class="badge">DEFENSE</span>
+    </a>
+    <div class="navr">
+      <a href="#direct" class="h">Engine</a>
+      <a href="#reveal" class="h">Forensics</a>
+      <a href="#spec" class="h">Specs</a>
+      <a href="/phone" class="h" style="color: var(--magenta);">Phone Relay</a>
+      <a href="/app" class="nav-btn">Launch Monitor</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <!-- 01 · HERO -->
+    <section id="hero" data-idx="Hero" data-fluid='{"CURL":16,"SPLAT_FORCE":2700,"BLOOM_INTENSITY":0.85,"DENSITY_DISSIPATION":0.74,"palette":"ink"}'>
+      <div id="heroHud">
+        <span class="bracket tl"></span><span class="bracket tr"></span><span class="bracket bl"></span><span class="bracket br"></span>
+      </div>
+      <div class="wrap">
+        <div class="eyebrow reveal">Real-Time AI Voice-Deepfake Recognition</div>
+        <h1><span class="mask"><span data-stagger>DEFEND<span class="d">.</span></span></span></h1>
+        <div class="sub">
+          <div class="lede reveal">Not a recording. Not a delay. A living surface of <em>acoustic defense</em>, evaluating voice authenticity sixty times a second.</div>
+          <div class="reveal" style="display:flex; flex-direction:column; align-items:flex-end; gap:14px;">
+            <span class="chip"><span class="live"></span> <span id="hudStatus">WebGL2 &middot; live</span></span>
+            <div class="meta">Wav2Vec2 + CQT<br>60 FPS &middot; &lt;28ms LATENCY</div>
+          </div>
+        </div>
+        <div class="hero-actions reveal">
+          <a href="/app" class="btn" data-magnetic><span>Launch Live Monitor</span></a>
+          <a href="/phone" class="btn ghost" data-magnetic><span>Test Phone Relay</span></a>
+        </div>
+      </div>
+    </section>
+
+    <!-- 01b · SHOWCASE -->
+    <section id="showcase" data-idx="Showcase" data-fluid='{"CURL":15,"SPLAT_FORCE":2550,"BLOOM_INTENSITY":0.9,"DENSITY_DISSIPATION":0.74,"palette":"ink"}'>
+      <div class="wrap">
+        <div class="secHead">
+          <div>
+            <div class="eyebrow reveal">The Platform</div>
+            <h2 class="reveal" style="font-weight:500; letter-spacing:-0.035em; font-size:clamp(30px,5vw,64px);">One acoustic stream. <span class="big" style="font-size:inherit;"><span class="g">Continuous</span></span> defense.</h2>
+          </div>
+          <p class="lead reveal" style="color:var(--muted); max-width:34ch;">Everything below evaluates live telephony & microphone PCM &mdash; zero delay. Move your cursor to perturb acoustic forensic fields.</p>
+        </div>
+        <div class="showStage">
+          <div class="window showWin reveal clipUp">
+            <div class="winbar"><span class="dotr" style="background:#ff5f57"></span><span class="dotr" style="background:#febc2e"></span><span class="dotr" style="background:#28c840"></span><span class="url">svarasentry.app / monitor</span></div>
+            <div class="winbody">
+              <div class="scan"></div>
+              <div class="wgrid"></div>
+              <div class="wmark">SVARA<span class="d">.</span></div>
+              <div class="whud"><span class="wstat">3.0s window &middot; 16kHz PCM &middot; Wav2Vec2 Encoders</span><span class="chip"><span class="live"></span> 60 FPS TELEMETRY</span></div>
+            </div>
+          </div>
+          <div class="annot a1 reveal"><div class="glass acard"><div class="k">Classifier</div><div class="v">Wav2Vec2 + CQT<small>Stable dual-path spectral feature extraction</small></div></div></div>
+          <div class="annot a2 reveal"><div class="glass acard"><div class="k">Confidence</div><div class="v">99.4% ROC-AUC<small>Forensic spoof vs bona fide evaluation</small></div></div></div>
+          <div class="annot a3 reveal"><div class="glass acard"><div class="k">Latency</div><div class="v">&lt; 28 ms<small>Single-frame neural inference on consumer GPUs</small></div></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 01c · TRUE FOCUS band -->
+    <section id="focus" data-idx="Focus" data-fluid='{"CURL":10,"SPLAT_FORCE":1800,"BLOOM_INTENSITY":0.5,"DENSITY_DISSIPATION":0.82,"palette":"ash"}'>
+      <div class="wrap">
+        <div class="focus-container" id="trueFocus" data-words="Real-time. Forensic. Unbreakable.">
+          <div class="focus-frame"><span class="corner tlc"></span><span class="corner trc"></span><span class="corner blc"></span><span class="corner brc"></span></div>
+        </div>
+        <div class="sublabel reveal">Three pillars. Zero compromise.</div>
+      </div>
+    </section>
+
+    <!-- 02 · TENSION (pinned scrub) -->
+    <section id="tension" class="pin" data-idx="Idea" data-fluid='{"CURL":7,"SPLAT_FORCE":1800,"BLOOM_INTENSITY":0.4,"DENSITY_DISSIPATION":0.9,"palette":"ash"}' style="height:280vh;">
+      <div class="pinStick">
+        <div class="wrap">
+          <div class="big" data-scrub-lines>
+            <div class="ln"><span class="dim">Every voice that ever spoke</span></div>
+            <div class="ln"><span class="dim">across a phone call</span></div>
+            <div class="ln">was <span class="s">authentic.</span></div>
+            <div class="ln" style="margin-top:0.4em">Now AI <span class="g">speaks in their breath.</span></div>
+            <div class="ln" style="margin-top:0.2em">SvaraSentry <span class="g">guards the line.</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 03 · THE REVEAL — pipeline scrub -->
+    <section id="reveal" class="pin" data-idx="Physics" data-fluid='{"CURL":22,"SPLAT_FORCE":3150,"BLOOM_INTENSITY":1.0,"DENSITY_DISSIPATION":0.72,"palette":"ink"}' style="height:520vh;">
+      <div class="pinStick">
+        <div id="pipeHead">
+          <div class="wrap">
+            <div class="eyebrow">The Loop · 8 forensic stages every frame</div>
+            <div class="big" style="font-size:clamp(28px,4.4vw,64px);">It&rsquo;s <span class="g">biometrics.</span></div>
+          </div>
+        </div>
+        <div id="pipeTrack">
+          <div class="pstage"><div class="pn">STAGE 01</div><div class="pdiag"><svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M28 28 q0-7 7-7 q11 0 11 12 q0 15-18 15 q-22 0-22-23"/><circle cx="28" cy="28" r="2.4" fill="currentColor" stroke="none"/></svg></div><div class="pt"><span class="g">Ingest</span></div><div class="pd">Capture raw 16kHz PCM audio stream via WebRTC or SIP trunk in real-time.</div><div class="pbar"></div></div>
+          <div class="pstage"><div class="pn">STAGE 02</div><div class="pdiag"><svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 32 a12 12 0 1 1 7 9"/><path d="M23 41 l-7 2 l1.5-7.5"/><path d="M40 24 a12 12 0 0 0-7-9" opacity="0.5"/></svg></div><div class="pt"><span class="g">Dual-Path Mel</span></div><div class="pd">Extract log-mel filterbanks and Constant-Q transform bi-spectral spectrograms.</div><div class="pbar"></div></div>
+          <div class="pstage"><div class="pn">STAGE 03</div><div class="pdiag"><svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="28" cy="28" r="2.6" fill="currentColor" stroke="none"/><path d="M28 22V12M28 12l-3 3M28 12l3 3"/><path d="M28 34v10M28 44l-3-3M28 44l3-3"/><path d="M22 28H12M12 28l3-3M12 28l3 3"/><path d="M34 28h10M44 28l-3-3M44 28l3 3"/></svg></div><div class="pt"><span class="g">Glottal Jitter</span></div><div class="pd">Measure micro-tremors and natural biomechanical variations in vocal fold oscillations.</div><div class="pbar"></div></div>
+          <div class="pstage"><div class="pn">STAGE 04</div><div class="pdiag"><svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="28" cy="28" r="4"/><circle cx="28" cy="28" r="11" opacity="0.7"/><circle cx="28" cy="28" r="18" opacity="0.4"/></svg></div><div class="pt"><span class="g">Phase Check</span></div><div class="pd">Detect mathematical vocoder phase mismatches and neural diffusion artifacts.</div><div class="pbar"></div></div>
+          <div class="pstage"><div class="pn">STAGE 05</div><div class="pdiag"><svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 34l8-6M10 34l9 1" opacity="0.5"/><path d="M10 22h36M46 22l-5-4M46 22l-5 4"/><path d="M10 34h28" opacity="0.5"/></svg></div><div class="pt"><span class="g">Wav2Vec2</span></div><div class="pd">Project acoustic frames through self-supervised transformer representations.</div><div class="pbar"></div></div>
+          <div class="pstage"><div class="pn">STAGE 06</div><div class="pdiag"><svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 22q9-9 18 0t18 0"/><path d="M8 34q9-9 18 0t18 0" opacity="0.6"/><path d="M44 22l1-6M44 22l5-2"/></svg></div><div class="pt"><span class="g">Temporal Variance</span></div><div class="pd">Evaluate cross-frame phonetic transitions against synthetic robotic stillness.</div><div class="pbar"></div></div>
+          <div class="pstage"><div class="pn">STAGE 07</div><div class="pdiag"><svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M28 10c7 10 12 15 12 23a12 12 0 0 1-24 0c0-8 5-13 12-23z"/><path d="M22 33a6 6 0 0 0 6 6" opacity="0.6"/></svg></div><div class="pt"><span class="g">Bayesian Score</span></div><div class="pd">Fuse multi-band anomaly likelihoods into a calibrated spoof probability.</div><div class="pbar"></div></div>
+          <div class="pstage"><div class="pn">STAGE 08</div><div class="pdiag"><svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="13" width="38" height="26" rx="3"/><path d="M22 46h12M28 39v7"/><path d="M34 22l1.6 3.4L39 27l-3.4 1.6L34 32l-1.6-3.4L29 27l3.4-1.6z" fill="currentColor" stroke="none"/></svg></div><div class="pt"><span class="g">Kill Switch</span></div><div class="pd">Trigger automated SIP call teardown, supervisor alert, and transaction freeze.</div><div class="pbar"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 04 · SPECS -->
+    <section id="spec" data-idx="Specs" data-fluid='{"CURL":15,"SPLAT_FORCE":2400,"BLOOM_INTENSITY":0.7,"DENSITY_DISSIPATION":0.76,"palette":"steel"}'>
+      <div class="wrap">
+        <div class="eyebrow reveal" style="margin-bottom:28px;">Forensic Benchmarks</div>
+        <div class="specGrid">
+          <div class="spec reveal"><div class="num"><span data-count="28">0</span><span class="u">ms</span></div><div class="cap">Inference Latency</div><div class="barwrap"><i style="--w:85%"></i></div></div>
+          <div class="spec reveal"><div class="num"><span data-count="99">0</span>.<span data-count="4">0</span><span class="u">%</span></div><div class="cap">Detection Accuracy</div><div class="barwrap"><i style="--w:99%"></i></div></div>
+          <div class="spec reveal"><div class="num"><span data-count="60">0</span><span class="u">fps</span></div><div class="cap">Waveform Telemetry</div><div class="barwrap"><i style="--w:92%"></i></div></div>
+          <div class="spec reveal"><div class="num"><span data-count="0">0</span><span class="u">loss</span></div><div class="cap">Zero Telephony Latency</div><div class="barwrap"><i style="--w:100%"></i></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 04b · GLASS UI (frosted glass over the live fluid) -->
+    <section id="glass" data-idx="Glass" data-fluid='{"CURL":13,"SPLAT_FORCE":2250,"BLOOM_INTENSITY":0.85,"DENSITY_DISSIPATION":0.78,"palette":"steel"}'>
+      <div class="gstick">
+        <div class="glassCard reveal" id="glassCard">
+          <div class="eyebrow">Telemetry HUD</div>
+          <h2>Enterprise defense, floating on the&nbsp;<span class="big" style="font-size:inherit;"><span class="g">waveform.</span></span></h2>
+          <p>Frosted glass telemetry panels, crisp audio diagnostics, real-time spectral dispersion. Monitor call risk scores live while acoustic waves breathe behind it &mdash; zero distraction, complete situational awareness.</p>
+          <div class="gstats">
+            <div><div class="gn">AA</div><div class="gl">Enterprise compliance</div></div>
+            <div><div class="gn">&lt;28ms</div><div class="gl">Decision latency</div></div>
+            <div><div class="gn">0</div><div class="gl">Audio payloads stored</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 05 · DIRECT IT (preset morph scrub) -->
+    <section id="direct" class="pin" data-idx="Engine" style="height:440vh;">
+      <div class="pinStick">
+        <div class="wrap" style="width:100%;">
+          <div class="eyebrow" style="margin-bottom:30px;">Direct the Engine &mdash; With Your Scroll</div>
+          <div id="directLabels"><div class="dMask"><span id="directWord" class="g">Sentry</span></div></div>
+          <div id="directDesc">Tight, vivid cobalt defense filaments &mdash; the <span class="s">signature</span> shield look.</div>
+          <div id="directPanel" class="glass">
+            <div class="pr"><div class="top"><span>VORTICITY</span><span class="kv" id="m_curl">18</span></div><div class="bar"><i id="b_curl"></i></div></div>
+            <div class="pr"><div class="top"><span>SPLAT FORCE</span><span class="kv" id="m_force">3800</span></div><div class="bar"><i id="b_force"></i></div></div>
+            <div class="pr"><div class="top"><span>BLOOM</span><span class="kv" id="m_bloom">0.85</span></div><div class="bar"><i id="b_bloom"></i></div></div>
+            <div class="pr" style="margin-bottom:0;"><div class="top"><span>DYE FADE</span><span class="kv" id="m_fade">0.74</span></div><div class="bar"><i id="b_fade"></i></div></div>
+          </div>
+        </div>
+        <div id="directBar"><i></i></div>
+      </div>
+    </section>
+
+    <!-- 05b · EMBED (light, high-contrast) -->
+    <section id="embed" data-idx="Embed">
+      <div class="wrap">
+        <div class="secHead">
+          <div>
+            <div class="eyebrow reveal">Drop it anywhere</div>
+            <h2 class="reveal" style="font-weight:600; letter-spacing:-0.04em; line-height:0.96; font-size:clamp(36px,6.5vw,92px);">Two lines of code.<br>Total telephony immunity.</h2>
+          </div>
+          <p class="lead2 reveal">Integrate with Twilio, Asterisk, FreeSWITCH, or native WebRTC pipelines in under five minutes with our ultra-lightweight client SDK.</p>
+        </div>
+        <div class="grid2">
+          <div class="editor reveal clipUp">
+            <div class="winbar"><span class="dotr" style="background:#ff5f57"></span><span class="dotr" style="background:#febc2e"></span><span class="dotr" style="background:#28c840"></span><span class="url" style="color:#7e88a8;background:rgba(255,255,255,0.06);">telephony_guard.js</span></div>
+            <pre><code><span class="c-com">// Connect real-time PCM audio stream to SvaraSentry</span>
+<span class="c-key">import</span> { <span class="c-tag">SvaraSentry</span> } <span class="c-key">from</span> <span class="c-str">"@svara/defense"</span>;
+
+<span class="c-key">const</span> sentry = <span class="c-key">new</span> <span class="c-tag">SvaraSentry</span>({
+  apiKey: process.env.<span class="c-fn">SVARA_KEY</span>,
+  killOnSpoof: <span class="c-tag">true</span>,
+  threshold: <span class="c-fn">0.85</span>
+});
+
+sentry.<span class="c-fn">onRiskAlert</span>(event =&gt; {
+  console.<span class="c-fn">warn</span>(<span class="c-str">"Deepfake intercepted!"</span>, event.confidence);
+});</code></pre>
+          </div>
+          <div class="device reveal">
+            <div class="frame">
+              <div class="demobar"><span class="dotr" style="background:#ff5f57"></span><span class="dotr" style="background:#febc2e"></span><span class="dotr" style="background:#28c840"></span></div>
+              <div class="demo" id="embedDemo"></div>
+            </div>
+            <div class="tagline">svarasentry.com &mdash; Real-time telephony defense stream</div>
+          </div>
+        </div>
+        <div class="embed-cards">
+          <div class="ec reveal"><div class="n">&lt; 1<span style="font-size:0.5em;">min</span></div><div class="t">From SDK install to active call guard</div></div>
+          <div class="ec reveal"><div class="n">0</div><div class="t">Audio latency added to caller stream</div></div>
+          <div class="ec reveal"><div class="n">100%</div><div class="t">Runs on cloud or air-gapped on-premise</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 06 · TOUCH -->
+    <section id="touch" data-idx="Touch" data-fluid='{"CURL":20,"SPLAT_FORCE":3450,"BLOOM_INTENSITY":1.05,"DENSITY_DISSIPATION":0.7,"palette":"ink"}'>
+      <div class="center">
+        <div class="big reveal" style="text-align:center;">Now <span class="s g">probe</span> it.</div>
+        <div class="hint reveal">Move your cursor &middot; drag to perturb acoustic field &middot; click to trigger defense burst</div>
+      </div>
+    </section>
+
+    <!-- 07 · MANIFESTO -->
+    <section id="manifesto" data-idx="Manifesto" data-fluid='{"CURL":13,"SPLAT_FORCE":2100,"BLOOM_INTENSITY":0.62,"DENSITY_DISSIPATION":0.8,"palette":"ember"}'>
+      <div class="wrap">
+        <div class="line"><span class="word"><i>Audio</i></span> <span class="word"><i>shouldn&rsquo;t</i></span> <span class="word"><i>just</i></span> <span class="word"><i>be</i></span> <span class="word"><i>trusted.</i></span></div>
+        <div class="line alt"><span class="word"><i>It&rsquo;s</i></span> <span class="word"><i class="g">meant</i></span> <span class="word"><i class="g">to</i></span> <span class="word"><i class="g">be</i></span> <span class="word"><i class="g">verified</i></span></div>
+        <div class="line"><span class="word"><i>&mdash; in every frame, across every call,</i></span></div>
+        <div class="line alt"><span class="word"><i>to keep</i></span> <span class="word"><i>human connection</i></span> <span class="word"><i class="s">genuinely authentic.</i></span></div>
+      </div>
+    </section>
+
+    <!-- 08 · CTA -->
+    <section id="cta" data-idx="Defend" data-fluid='{"CURL":24,"SPLAT_FORCE":3750,"BLOOM_INTENSITY":1.15,"DENSITY_DISSIPATION":0.72,"palette":"ink"}'>
+      <div class="wrap">
+        <div class="eyebrow reveal" style="justify-content:center; margin-bottom:28px;">One Engine. Zero Compromises.</div>
+        <h2><span class="mask"><span>Secure your</span></span><span class="mask"><span>voice <span class="d">line.</span></span></span></h2>
+        <div class="btns reveal">
+          <a href="/app" class="btn" data-magnetic><span>Launch Live Monitor</span></a>
+          <a href="/phone" class="btn ghost" data-magnetic><span>Test Phone Relay</span></a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer data-idx="">
+    <div class="wrap">
+      <div class="top">
+        <div class="fmark">SVARA<span class="d">.</span></div>
+        <div class="cols">
+          <div class="col"><h4>Platform</h4><a href="#hero">Overview</a><a href="#direct">Defense Engine</a><a href="#spec">Specs</a><a href="/app">Live Monitor</a></div>
+          <div class="col"><h4>Telephony</h4><a href="/phone">Phone Relay</a><a href="#reveal">Pipeline</a><a href="#embed">SDK Embed</a></div>
+          <div class="col"><h4>Lineage</h4><a href="https://github.com/njhari-07/SvaraSentry" target="_blank">SvaraSentry Repo</a><a href="#">Wav2Vec2 Deepfake Defense</a><a href="#">Navier-Stokes WebGL</a></div>
+        </div>
+      </div>
+      <div class="base">
+        <span>&copy; 2026 SvaraSentry &mdash; Real-Time AI Voice Deepfake Defense.</span>
+        <span class="built"><span class="g"></span> Neural Audio Forensic Architecture</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Real-Time WebGL Fluid Simulation & Interaction Logic -->
+  <script src="/static/landing.js?v=4"></script>
+</body>
+</html>
