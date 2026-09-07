@@ -43,31 +43,30 @@ export default function HomePage() {
 
   return (
     <div className="relative min-h-screen bg-[#050507] text-[#faf6f0] antialiased">
-      {/* Floating View Switcher Bar for instant access */}
+      {/* Floating View Switcher Dock */}
       <nav
         aria-label="View Switcher"
         style={{
           position: "fixed",
-          top: "14px",
-          left: "50%",
-          transform: "translateX(-50%)",
+          bottom: "22px",
+          right: "24px",
           zIndex: 9999,
           display: "flex",
           alignItems: "center",
-          backgroundColor: "rgba(10, 12, 22, 0.85)",
-          backdropFilter: "blur(16px)",
-          WebkitBackdropFilter: "blur(16px)",
+          backgroundColor: "rgba(10, 12, 22, 0.88)",
+          backdropFilter: "blur(18px)",
+          WebkitBackdropFilter: "blur(18px)",
           border: "1px solid rgba(255, 255, 255, 0.15)",
-          padding: "4px",
+          padding: "5px",
           borderRadius: "9999px",
-          boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)",
+          boxShadow: "0 20px 30px -5px rgba(0, 0, 0, 0.65), 0 0 15px rgba(63, 140, 255, 0.15)",
         }}
       >
         <button
           type="button"
           onClick={goToLanding}
           style={{
-            padding: "6px 16px",
+            padding: "7px 18px",
             borderRadius: "9999px",
             fontSize: "12px",
             fontFamily: "monospace",
@@ -79,13 +78,13 @@ export default function HomePage() {
             transition: "all 0.2s",
           }}
         >
-          SvaraSentry Overview
+          Overview
         </button>
         <button
           type="button"
           onClick={goToDashboard}
           style={{
-            padding: "6px 16px",
+            padding: "7px 18px",
             borderRadius: "9999px",
             fontSize: "12px",
             fontFamily: "monospace",
@@ -97,18 +96,19 @@ export default function HomePage() {
             transition: "all 0.2s",
           }}
         >
-          Live Interior Dashboard
+          Live Dashboard
         </button>
       </nav>
 
       {view === "dashboard" ? (
-        <div className="pt-12">
+        <div className="pt-8">
           <Dashboard onBackToLanding={goToLanding} />
         </div>
       ) : (
         <iframe
           src="/ink.html"
-          title="SvaraSentry Overview"
+          title=""
+          aria-label="SvaraSentry Overview"
           style={{
             position: "fixed",
             top: 0,

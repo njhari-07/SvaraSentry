@@ -154,7 +154,7 @@ opacity:0; transform:translateX(8px); transition:.4s var(--ease); }
 nav{ position:fixed; top:0; left:0; right:0; z-index:75; display:flex; justify-content:space-between; align-items:center;
 padding:22px clamp(20px,4vw,46px); mix-blend-mode:difference; }
 nav .brand{ font-weight:700; letter-spacing:-0.04em; font-size:20px; display:inline-flex; align-items:baseline; }
-nav .brand .d{ display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--blue); box-shadow:0 0 8px var(--blue); vertical-align:middle; margin-left:3px; font-size:0; line-height:0; color:transparent; }
+nav .brand .d{ display:inline-block; width:6px; height:6px; aspect-ratio:1/1; border-radius:50%; background:var(--blue); box-shadow:0 0 8px var(--blue); vertical-align:middle; margin-left:3px; flex-shrink:0; font-size:0; line-height:0; color:transparent; }
 nav .navr{ display:flex; gap:26px; align-items:center; font-size:12.5px; letter-spacing:0.04em; }
 nav .navr a{ color:#fff; opacity:.8; transition:opacity .2s; }
 nav .navr a:hover{ opacity:1; }
@@ -191,10 +191,10 @@ display:inline-flex; align-items:center; gap:12px; }
 .clipUp.in{ clip-path:inset(0 0 0% 0); }
 /* ---------------- HERO ---------------- */
 #hero{ height:100vh; min-height:640px; display:flex; flex-direction:column; justify-content:center; }
-#hero h1{ font-weight:600; letter-spacing:-0.05em; line-height:0.90; font-size:clamp(96px,26vw,420px);
-margin-left:-0.02em; }
-#hero .mask{ display:block; overflow:hidden; padding-bottom:0.12em; margin-bottom:-0.12em; }
-#hero h1 .d{ display:inline-block; width:0.16em; height:0.16em; border-radius:50%; background:var(--blue); box-shadow:0 0 45px rgba(63,140,255,0.7); vertical-align:0.04em; margin-left:0.04em; font-size:0; line-height:0; color:transparent; }
+#hero h1{ font-weight:600; letter-spacing:-0.05em; line-height:0.90; font-size:clamp(84px,22vw,360px);
+margin-left:-0.02em; white-space:nowrap; }
+#hero .mask{ display:block; overflow:hidden; padding-bottom:0.12em; margin-bottom:-0.12em; padding-right:0.18em; margin-right:-0.18em; }
+#hero h1 .d{ display:inline-block; width:0.16em; height:0.16em; aspect-ratio:1/1; border-radius:50%; background:var(--blue); box-shadow:0 0 45px rgba(63,140,255,0.85); vertical-align:0.04em; margin-left:0.06em; flex-shrink:0; font-size:inherit; line-height:0; color:transparent; }
 #hero .sub{ margin-top:30px; display:flex; gap:40px; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; }
 #hero .sub .lede{ font-size:clamp(17px,2.1vw,23px); max-width:30ch; color:rgba(225,230,250,0.9); font-weight:400; line-height:1.35; }
 #hero .sub .lede em{ font-family:var(--serif); font-style:italic; }
@@ -263,7 +263,7 @@ transition:transform .55s var(--ease), opacity .35s ease; will-change:transform,
 /* ---------------- CTA ---------------- */
 #cta{ min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:80px 0; }
 #cta h2{ font-weight:600; letter-spacing:-0.045em; line-height:0.92; font-size:clamp(48px,11vw,180px); }
-#cta h2 .d{ display:inline-block; width:0.16em; height:0.16em; border-radius:50%; background:var(--blue); box-shadow:0 0 30px rgba(63,140,255,0.6); vertical-align:0.04em; margin-left:0.04em; font-size:0; line-height:0; color:transparent; }
+#cta h2 .d{ display:inline-block; width:0.16em; height:0.16em; aspect-ratio:1/1; border-radius:50%; background:var(--blue); box-shadow:0 0 30px rgba(63,140,255,0.7); vertical-align:0.04em; margin-left:0.06em; flex-shrink:0; font-size:inherit; line-height:0; color:transparent; }
 #cta .btns{ margin-top:48px; display:flex; gap:16px; flex-wrap:wrap; justify-content:center; }
 .btn{ position:relative; font-family:var(--display); font-size:15px; font-weight:500; padding:17px 34px; border-radius:100px;
 border:1px solid var(--line); color:var(--ink); background:rgba(255,255,255,0.05); cursor:pointer; overflow:hidden; will-change:transform;
@@ -277,7 +277,7 @@ transition:border-color .3s ease; }
 footer{ position:relative; z-index:10; border-top:1px solid var(--line); padding:clamp(50px,8vh,90px) 0 40px; background:rgba(5,5,8,0.6); backdrop-filter:blur(10px); }
 footer .top{ display:flex; justify-content:space-between; align-items:flex-end; gap:30px; flex-wrap:wrap; }
 footer .fmark{ font-weight:700; letter-spacing:-0.04em; font-size:clamp(60px,12vw,150px); line-height:0.8; }
-footer .fmark .d{ display:inline-block; width:0.16em; height:0.16em; border-radius:50%; background:var(--blue); box-shadow:0 0 20px rgba(63,140,255,0.5); vertical-align:0.04em; margin-left:0.04em; font-size:0; line-height:0; color:transparent; }
+footer .fmark .d{ display:inline-block; width:0.16em; height:0.16em; aspect-ratio:1/1; border-radius:50%; background:var(--blue); box-shadow:0 0 20px rgba(63,140,255,0.6); vertical-align:0.04em; margin-left:0.06em; flex-shrink:0; font-size:inherit; line-height:0; color:transparent; }
 footer .cols{ display:flex; gap:clamp(28px,6vw,80px); flex-wrap:wrap; font-size:13px; }
 footer .cols .col h4{ font-family:var(--mono); font-size:10px; letter-spacing:0.18em; text-transform:uppercase; color:var(--faint); margin-bottom:14px; font-weight:500; }
 footer .cols .col a{ display:block; color:var(--muted); margin:8px 0; transition:color .2s; }
@@ -438,7 +438,7 @@ filter:drop-shadow(0 0 6px rgba(79,116,255,0.8)); border-radius:3px; }
 
   <!-- nav -->
   <nav>
-    <div class="brand">SvaraSentry<span class="d">.</span></div>
+    <div class="brand">SvaraSentry<span class="d"></span></div>
     <div class="navr">
       <a href="#direct" class="h">Engine</a>
       <a href="#reveal" class="h">Pipeline</a>
@@ -457,7 +457,7 @@ filter:drop-shadow(0 0 6px rgba(79,116,255,0.8)); border-radius:3px; }
       </div>
       <div class="wrap">
         <div class="eyebrow reveal">Real-time AI voice-deepfake defense</div>
-        <h1><span class="mask"><span data-stagger>SVARA<span class="d">.</span></span></span></h1>
+        <h1><span class="mask"><span data-stagger>SVARA<span class="d"></span></span></span></h1>
         <div class="sub">
           <div class="lede reveal">Not a recording. Not a delay. A living surface of <em>acoustic defense</em>, analyzing vocal authenticity sixty times a second.</div>
           <div class="reveal" style="display:flex;flex-direction:column;align-items:flex-end;gap:14px;">
@@ -657,7 +657,7 @@ filter:drop-shadow(0 0 6px rgba(79,116,255,0.8)); border-radius:3px; }
     <section id="cta" data-idx="Sentinel" data-fluid='{"CURL":24,"SPLAT_FORCE":5000,"BLOOM_INTENSITY":1.15,"DENSITY_DISSIPATION":0.72,"palette":"ink"}'>
       <div class="wrap">
         <div class="eyebrow reveal" style="justify-content:center; margin-bottom:28px;">Zero audio stored. Continuous verification.</div>
-        <h2><span class="mask"><span>Defend every</span></span><span class="mask"><span>voice call<span class="d">.</span></span></span></h2>
+        <h2><span class="mask"><span>Defend every</span></span><span class="mask"><span>voice call<span class="d"></span></span></span></h2>
         <div class="btns reveal">
           <a href="#dashboard" onclick="if(window.parent){window.parent.location.hash='dashboard';}else{window.location.href='/app';} return false;" class="btn" data-magnetic><span>Launch Live Monitor</span></a>
           <a href="/phone" class="btn ghost" target="_top" data-magnetic><span>Connect Phone Relay</span></a>
@@ -670,7 +670,7 @@ filter:drop-shadow(0 0 6px rgba(79,116,255,0.8)); border-radius:3px; }
   <footer data-idx="" >
     <div class="wrap">
       <div class="top">
-        <div class="fmark">SvaraSentry<span class="d">.</span></div>
+        <div class="fmark">SvaraSentry<span class="d"></span></div>
         <div class="cols">
           <div class="col"><h4>Product</h4><a href="#hero">Overview</a><a href="#dashboard" onclick="if(window.parent){window.parent.location.hash='dashboard';}else{window.location.href='/app';} return false;">Live Monitor</a><a href="/phone" target="_top">Phone Relay</a><a href="#spec">Architecture</a></div>
           <div class="col"><h4>Defense</h4><a href="#reveal">Neural Pipeline</a><a href="#direct">Acoustic Engine</a><a href="#embed">WebSocket API</a><a href="#">Zero Storage Policy</a></div>
