@@ -64,6 +64,10 @@ class APITests(unittest.TestCase):
         self.assertIn(result["alert_level"], {"none", "caution", "high"})
         self.assertTrue(result["spectrogram_png_b64"])
         self.assertIn("rms_dbfs", result["signal"])
+        self.assertIn("fake_probability", result)
+        self.assertIn("model_evidence", result)
+        self.assertEqual(result["explanation"]["confidence"], "limited")
+        self.assertIn("not a trained deepfake model", result["explanation"]["summary"])
 
     def test_audio_socket_rejects_oversized_frames(self):
         with self.client.websocket_connect("/ws/audio/frame-limit-test") as socket:

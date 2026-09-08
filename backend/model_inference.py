@@ -6,6 +6,8 @@ from pathlib import Path
 
 import numpy as np
 
+from backend.attribution import occlude_frequency_bands, occlude_time_regions, top_time_regions
+from backend.inference import AttributionOptions
 from backend.inference import InferenceResult
 from backend.spectrogram import pcm_float, signal_metrics
 from backend.streaming import AudioChunk
@@ -14,7 +16,7 @@ from backend.streaming import AudioChunk
 class CheckpointInferenceEngine:
     model_kind = "wav2vec2-attentive"
 
-    def __init__(self, checkpoint_path: Path) -> None:
+    def __init__(self, checkpoint_path: Path, attribution: AttributionOptions) -> None:
         if not checkpoint_path.is_file():
             raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
         try:
@@ -33,17 +35,70 @@ class CheckpointInferenceEngine:
         self.model.load_state_dict(payload["state_dict"])
         self.model.to(self.device).eval()
         self.torch = torch
+        self.attribution = AttributionOptions(
+            top_regions=max(1, attribution.top_regions),
+            time_occlusion=attribution.time_occlusion,
+            band_occlusion=attribution.band_occlusion,
+            integrated_gradients=attribution.integrated_gradients,
+        )
 
     def score(self, chunk: AudioChunk) -> InferenceResult:
         samples = pcm_float(chunk)
         metrics = signal_metrics(samples)
         output = self._forward(samples)
+        logit_margin = float(output.logits.item())
         probability = float(self.torch.sigmoid(output.logits).item())
         embedding = output.embedding.squeeze(0).detach().cpu().numpy().astype(np.float32)
         attention = output.attention.squeeze(0).detach().cpu().numpy()
-        peak_index = int(np.argmax(attention))
         window_ms = chunk.sample_count * 1000 / chunk.sample_rate
-        frame_ms = window_ms / max(1, attention.size)
+        regions = top_time_regions(
+            attention,
+            window_ms,
+            method="temporal_attention",
+            count=self.attribution.top_regions,
+        )
+        evidence: dict[str, object] = {
+            "attribution_type": "wav2vec2_temporal",
+            "top_time_regions": regions,
+            "methods": ["temporal_attention"],
+            "frequency_attribution_available": False,
+            "unsupported": [
+                "aasist_graph_attention",
+                "aasist_node_importance",
+                "aasist_edge_importance",
+            ],
+        }
+        if self.attribution.time_occlusion and regions:
+            evidence["time_occlusion_regions"] = occlude_time_regions(
+                samples,
+                regions,
+                chunk.sample_rate,
+                probability,
+                self._probability,
+            )
+            evidence["methods"].append("time_occlusion")
+        if self.attribution.band_occlusion:
+            evidence["frequency_band_occlusion"] = occlude_frequency_bands(
+                samples,
+                chunk.sample_rate,
+                probability,
+                self._probability,
+            )
+            evidence["frequency_attribution_available"] = True
+            evidence["methods"].append("band_occlusion")
+        if self.attribution.integrated_gradients:
+            evidence["integrated_gradients_regions"] = self._integrated_gradients_regions(
+                samples,
+                window_ms,
+            )
+            evidence["methods"].append("integrated_gradients")
+
+        flagged_region = None
+        if regions:
+            flagged_region = {
+                "time_offset_ms": [regions[0]["start_ms"], regions[0]["end_ms"]],
+                "attribution_type": "temporal_attention",
+            }
         return InferenceResult(
             fake_probability=probability,
             embedding=embedding,
@@ -51,10 +106,9 @@ class CheckpointInferenceEngine:
             peak=metrics.peak,
             zero_crossing_rate=metrics.zero_crossing_rate,
             signal_state=metrics.state,
-            flagged_region={
-                "time_offset_ms": [round(peak_index * frame_ms), round((peak_index + 1) * frame_ms)],
-                "frequency_band": "model attention",
-            },
+            logit_margin=logit_margin,
+            flagged_region=flagged_region,
+            model_evidence=evidence,
             model_kind=self.model_kind,
         )
 
@@ -66,3 +120,39 @@ class CheckpointInferenceEngine:
         waveform = self.torch.from_numpy(samples).unsqueeze(0).to(self.device)
         with self.torch.inference_mode():
             return self.model(waveform)
+
+    def _probability(self, samples: np.ndarray) -> float:
+        output = self._forward(samples)
+        return float(self.torch.sigmoid(output.logits).item())
+
+    def _integrated_gradients_regions(
+        self, samples: np.ndarray, window_ms: float, steps: int = 12
+    ) -> list[dict[str, object]]:
+        """Return time regions from integrated gradients over raw waveform input.
+
+        This is intentionally opt-in: it performs multiple backwards passes and
+        should normally run on a GPU or an asynchronous analysis worker.
+        """
+
+        waveform = self.torch.from_numpy(samples).unsqueeze(0).to(self.device)
+        baseline = self.torch.zeros_like(waveform)
+        total_gradient = self.torch.zeros_like(waveform)
+        for alpha in self.torch.linspace(1 / steps, 1, steps, device=self.device):
+            interpolated = (baseline + alpha * (waveform - baseline)).detach().requires_grad_(True)
+            output = self.model(interpolated)
+            gradient = self.torch.autograd.grad(output.logits.sum(), interpolated)[0]
+            total_gradient += gradient
+        attribution = ((waveform - baseline) * total_gradient / steps).abs().squeeze(0)
+        frame_count = max(1, int(self._forward(samples).attention.shape[-1]))
+        frame_size = int(np.ceil(attribution.numel() / frame_count))
+        padded = self.torch.nn.functional.pad(
+            attribution,
+            (0, frame_count * frame_size - attribution.numel()),
+        )
+        values = padded.reshape(frame_count, frame_size).mean(dim=1).detach().cpu().numpy()
+        return top_time_regions(
+            values,
+            window_ms,
+            method="integrated_gradients",
+            count=self.attribution.top_regions,
+        )

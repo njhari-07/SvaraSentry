@@ -3111,6 +3111,94 @@ footer {
   background: linear-gradient(90deg, var(--accent-secondary), transparent);
 }
 
+.explanation-card {
+  position: relative;
+  margin-top: 16px;
+  padding: 15px 16px 16px;
+  overflow: hidden;
+  border: 1px solid rgba(141, 207, 247, 0.22);
+  border-radius: 4px 15px 4px 15px;
+  background:
+    linear-gradient(90deg, rgba(99, 219, 177, 0.08), transparent 44%),
+    rgba(5, 18, 39, 0.6);
+}
+
+.explanation-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 16px;
+  width: 60px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent-safe), transparent);
+}
+
+.explanation-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.explanation-card small {
+  color: var(--accent-secondary);
+  font: 600 0.62rem/1 var(--mono);
+  letter-spacing: 0.13em;
+}
+
+.confidence {
+  padding: 4px 7px;
+  border: 1px solid rgba(141, 207, 247, 0.2);
+  border-radius: 999px;
+  color: var(--muted);
+  font: 600 0.58rem/1 var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.confidence.strong { color: var(--accent-safe); border-color: rgba(99, 219, 177, 0.4); }
+.confidence.limited { color: var(--accent-caution); border-color: rgba(245, 158, 11, 0.42); }
+
+.explanation-card h3 {
+  margin-top: 11px;
+  color: var(--ink);
+  font: 700 1rem/1.2 var(--display);
+}
+
+.explanation-card p,
+.explanation-card li {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.48;
+}
+
+.explanation-card > p { margin-top: 7px; }
+
+.explanation-card ul {
+  display: grid;
+  gap: 5px;
+  margin: 11px 0 0;
+  padding-left: 17px;
+}
+
+.explanation-card li::marker { color: var(--accent-secondary); }
+
+.explanation-limit {
+  margin-top: 12px;
+  padding: 8px 10px;
+  border-left: 2px solid var(--accent-caution);
+  background: rgba(245, 158, 11, 0.07);
+}
+
+.explanation-action {
+  display: block;
+  margin-top: 12px;
+  color: var(--accent-safe);
+  font: 600 0.75rem/1.45 var(--sans);
+}
+
+.explanation-empty { min-height: 92px; }
+
 @media (max-width: 620px) {
   .topbar::after,
   .decision-panel::after {

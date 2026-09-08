@@ -731,6 +731,38 @@ Expected result:
 }
 ```
 
+## Evidence-bound explanations
+
+Each analysed window returns a deterministic explanation alongside the risk score. It is designed
+for a non-technical operator: it reports the model score, the most influential audio time region,
+signal-quality limitations, optional enrolled-voice similarity, and an appropriate action.
+
+The live checkpoint currently uses a Wav2Vec2 encoder with a learned **temporal attention** head.
+Its native evidence therefore identifies influential **time regions**, not a frequency region or
+an AASIST graph. The spectrogram and acoustic features remain useful visual and quality context,
+but are never used as a claim that a voice is real or fake.
+
+For offline or GPU-backed analysis, the following opt-in causal checks can strengthen the time
+attention evidence. They are disabled by default because they add model passes and can increase
+live-stream latency:
+
+```bash
+SVARASENTRY_MODEL_MODE=checkpoint
+SVARASENTRY_EXPLAIN_OCCLUSION=1        # silence each influential time region and re-score
+SVARASENTRY_EXPLAIN_BAND_OCCLUSION=1   # attenuate broad frequency bands and re-score
+SVARASENTRY_EXPLAIN_INTEGRATED_GRADIENTS=1
+```
+
+Band occlusion reports only broad-band score sensitivity; it must not be described as a proven
+"fake frequency." True AASIST node, edge, and graph-attention evidence is intentionally marked
+unavailable until an AASIST model adapter is added to the repository.
+
+The optional language layer is deliberately separated from inference. Install it with
+`pip install -e '.[explain]'`, supply an approved LangChain runnable in deployment code, and pass
+only the deterministic explanation contract to it. The guardrail rejects unsupported wording and
+falls back to the original deterministic explanation; no external LLM or provider is enabled by
+default.
+
 ## Verification
 
 Run the automated suite:

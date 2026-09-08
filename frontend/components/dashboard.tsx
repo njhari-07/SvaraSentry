@@ -9,7 +9,7 @@ import { Mic, Square } from "lucide-react";
 
 import { delay, floatToPcm16, resample } from "@/lib/audio";
 import { apiUrl, publicUrl, requestJson, websocketUrl } from "@/lib/api";
-import type { AlertLevel, AnalysisResult, DashboardMessage, RuntimeConfig } from "@/lib/types";
+import type { AlertLevel, AnalysisResult, DashboardMessage, Explanation, RuntimeConfig } from "@/lib/types";
 import { WelcomeModal } from "@/components/WelcomeModal";
 
 type EventItem = { level: AlertLevel; title: string; copy: string; time: string };
@@ -625,6 +625,7 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
               </span>
             ))}
           </div>
+          <ExplanationCard explanation={result?.explanation} />
         </article>
         <article className="panel">
           <PanelTitle kicker="SESSION TREND" title="Risk timeline" right={`${result?.chunk_index ?? 0} windows`} />
@@ -767,6 +768,33 @@ function PanelTitle({ kicker, title, right, action, onAction }: { kicker: string
       {right && <span className="compact-stat">{right}</span>}
       {action && <button className="text-button" type="button" onClick={onAction}>{action}</button>}
     </header>
+  );
+}
+
+function ExplanationCard({ explanation }: { explanation?: Explanation }) {
+  if (!explanation) {
+    return (
+      <section className="explanation-card explanation-empty">
+        <small>MODEL EXPLANATION</small>
+        <p>A plain-language explanation appears with the first analysed audio window.</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="explanation-card" aria-label="Model explanation">
+      <header>
+        <small>MODEL EXPLANATION</small>
+        <span className={`confidence ${explanation.confidence}`}>{explanation.confidence} confidence</span>
+      </header>
+      <h3>{explanation.anomaly_label}</h3>
+      <p>{explanation.summary}</p>
+      <ul>
+        {explanation.evidence.slice(0, 3).map((item) => <li key={item}>{item}</li>)}
+      </ul>
+      <p className="explanation-limit">{explanation.limits[0]}</p>
+      <strong className="explanation-action">{explanation.recommended_action}</strong>
+    </section>
   );
 }
 

@@ -24,14 +24,24 @@ from fastapi.responses import JSONResponse, RedirectResponse
 
 from backend.audio_io import decode_audio
 from backend.config import Settings
-from backend.inference import InferenceEngine, create_inference_engine
+from backend.explainer import build_explanation
+from backend.inference import AttributionOptions, InferenceEngine, create_inference_engine
 from backend.pairing import pairing_manager
 from backend.risk_engine import RiskEngine
 from backend.spectrogram import SpectrogramConfig, SpectrogramRenderer, cosine_similarity
 from backend.streaming import AudioChunk, PCMChunker
 
 settings = Settings.from_env()
-inference: InferenceEngine = create_inference_engine(settings.model_mode, settings.checkpoint_path)
+inference: InferenceEngine = create_inference_engine(
+    settings.model_mode,
+    settings.checkpoint_path,
+    AttributionOptions(
+        top_regions=settings.explanation_top_regions,
+        time_occlusion=settings.explanation_occlusion,
+        band_occlusion=settings.explanation_band_occlusion,
+        integrated_gradients=settings.explanation_integrated_gradients,
+    ),
+)
 spectrogram = SpectrogramRenderer(config=SpectrogramConfig(window_seconds=settings.window_seconds))
 
 
@@ -166,6 +176,11 @@ async def health() -> dict[str, object]:
         "model": inference.model_kind,
         "mode": settings.model_mode,
         "checkpoint_loaded": settings.model_mode == "checkpoint",
+        "explainability": {
+            "time_occlusion": settings.explanation_occlusion,
+            "band_occlusion": settings.explanation_band_occlusion,
+            "integrated_gradients": settings.explanation_integrated_gradients,
+        },
     }
 
 
@@ -180,6 +195,11 @@ async def public_config() -> dict[str, object]:
         "model_kind": inference.model_kind,
         "model_mode": settings.model_mode,
         "baseline_disclaimer": settings.model_mode == "baseline",
+        "explainability": {
+            "time_occlusion": settings.explanation_occlusion,
+            "band_occlusion": settings.explanation_band_occlusion,
+            "integrated_gradients": settings.explanation_integrated_gradients,
+        },
     }
 
 
@@ -289,6 +309,27 @@ async def process_chunk(session: SessionState, chunk: AudioChunk) -> dict[str, o
     risk = session.risk_engine.update(prediction.fake_probability, identity_match)
     session.chunk_count += 1
     session.updated_at = time.time()
+    signal = {
+        "rms_dbfs": prediction.rms_dbfs,
+        "peak": prediction.peak,
+        "zero_crossing_rate": prediction.zero_crossing_rate,
+        "state": prediction.signal_state,
+    }
+    acoustic_features = render_output.features.as_dict()
+    explanation = build_explanation(
+        model_kind=prediction.model_kind,
+        model_mode=settings.model_mode,
+        fake_probability=prediction.fake_probability,
+        risk_score=risk.raw_score,
+        smoothed_risk=risk.smoothed_score,
+        alert_level=risk.alert_level,
+        signal=signal,
+        acoustic_features=acoustic_features,
+        model_evidence=prediction.model_evidence,
+        identity_match=identity_match,
+        caution_threshold=settings.caution_threshold,
+        high_threshold=settings.high_threshold,
+    )
     payload: dict[str, object] = {
         "type": "result",
         "session_id": session.session_id,
@@ -297,22 +338,21 @@ async def process_chunk(session: SessionState, chunk: AudioChunk) -> dict[str, o
         "risk_score": round(risk.raw_score, 4),
         "smoothed_risk": round(risk.smoothed_score, 4),
         "alert_level": risk.alert_level,
+        "fake_probability": round(prediction.fake_probability, 4),
+        "logit_margin": round(prediction.logit_margin, 4) if prediction.logit_margin is not None else None,
         # Backward-compatible top-level PNG key
         "spectrogram_png_b64": render_output.spectrogram.image_png_b64,
         # Structured spectrogram metadata (v2)
         "spectrogram": render_output.spectrogram.as_dict(),
         # Descriptive acoustic properties (do NOT feed into risk score)
-        "acoustic_features": render_output.features.as_dict(),
+        "acoustic_features": acoustic_features,
         "flagged_region": prediction.flagged_region,
+        "model_evidence": prediction.model_evidence,
+        "explanation": explanation,
         "identity_match": round(identity_match, 4) if identity_match is not None else None,
         "voice_enrolled": session.enrollment is not None,
         "model_kind": prediction.model_kind,
-        "signal": {
-            "rms_dbfs": prediction.rms_dbfs,
-            "peak": prediction.peak,
-            "zero_crossing_rate": prediction.zero_crossing_rate,
-            "state": prediction.signal_state,
-        },
+        "signal": signal,
         "processing_ms": round((time.perf_counter() - started) * 1000, 1),
     }
     # Exclude large binary and redundant structured keys from the session snapshot

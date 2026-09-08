@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
@@ -20,8 +20,20 @@ class InferenceResult:
     peak: float
     zero_crossing_rate: float
     signal_state: str
+    logit_margin: float | None = None
     flagged_region: dict[str, object] | None = None
+    model_evidence: dict[str, object] = field(default_factory=dict)
     model_kind: str = "unknown"
+
+
+@dataclass(frozen=True, slots=True)
+class AttributionOptions:
+    """Optional causal explanations; disabled by default for live latency."""
+
+    top_regions: int = 3
+    time_occlusion: bool = False
+    band_occlusion: bool = False
+    integrated_gradients: bool = False
 
 
 class InferenceEngine(Protocol):
@@ -58,11 +70,15 @@ class BaselineInferenceEngine:
         )
 
 
-def create_inference_engine(mode: str, checkpoint: Path) -> InferenceEngine:
+def create_inference_engine(
+    mode: str,
+    checkpoint: Path,
+    attribution: AttributionOptions | None = None,
+) -> InferenceEngine:
     if mode == "baseline":
         return BaselineInferenceEngine()
     if mode == "checkpoint":
         from backend.model_inference import CheckpointInferenceEngine
 
-        return CheckpointInferenceEngine(checkpoint)
+        return CheckpointInferenceEngine(checkpoint, attribution or AttributionOptions())
     raise ValueError(f"Unsupported model mode: {mode!r}")
