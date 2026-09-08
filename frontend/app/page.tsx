@@ -48,8 +48,9 @@ export default function HomePage() {
         aria-label="View Switcher"
         style={{
           position: "fixed",
-          bottom: "22px",
-          right: "24px",
+          bottom: "24px",
+          left: "50%",
+          transform: "translateX(-50%)",
           zIndex: 9999,
           display: "flex",
           alignItems: "center",
@@ -117,6 +118,7 @@ export default function HomePage() {
             height: "100vh",
             border: "none",
             zIndex: 1,
+            backgroundColor: "transparent",
           }}
         />
       )}

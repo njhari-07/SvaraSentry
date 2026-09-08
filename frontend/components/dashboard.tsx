@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent, CSSProperties, ReactNode } from "react";
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
+import { Mic, Square } from "lucide-react";
 
 import { delay, floatToPcm16, resample } from "@/lib/audio";
 import { apiUrl, publicUrl, requestJson, websocketUrl } from "@/lib/api";
@@ -56,6 +57,12 @@ function Clock() {
   return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
+function formatSeconds(total: number) {
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+}
+
 export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
   const [config, setConfig] = useState<RuntimeConfig>(DEFAULT_CONFIG);
   const [sessionId, setSessionId] = useState("demo-1");
@@ -81,10 +88,41 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
   const lastLevel = useRef<AlertLevel | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeSourceRef = useRef<"microphone" | "file" | "phone" | null>(null);
+  const [activeSource, setActiveSourceState] = useState<"microphone" | "file" | "phone" | null>(null);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [micBars, setMicBars] = useState<number[]>([18, 35, 60, 75, 55, 40, 25, 18]);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animFrameRef = useRef<number | null>(null);
 
   function setActiveSource(source: "microphone" | "file" | "phone" | null) {
     activeSourceRef.current = source;
+    setActiveSourceState(source);
   }
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | null = null;
+    if (isStreaming && activeSource === "microphone") {
+      setRecordingSeconds(0);
+      timer = setInterval(() => {
+        setRecordingSeconds((prev) => prev + 1);
+      }, 1000);
+    } else {
+      setRecordingSeconds(0);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [isStreaming, activeSource]);
+
+  const [scrolledPastHero, setScrolledPastHero] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolledPastHero(window.scrollY > 260);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const level: AlertLevel = result?.alert_level ?? "none";
   const decision = result ? decisions[level] : ["Ready to monitor", "Choose a microphone or audio file to begin a session.", "No action needed", "Begin monitoring when a call starts."];
@@ -162,6 +200,11 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
   }, [sessionId]);
 
   async function stopAudio(updateStatus = true) {
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+    analyserRef.current = null;
     activeSourceRef.current = null;
     setActiveSource(null);
     setIsStreaming(false);
@@ -208,6 +251,14 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
       const context = new AudioContext();
       audioContext.current = context;
       const source = context.createMediaStreamSource(stream);
+
+      // Setup live visual frequency analyser for real-time visual feedback
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 64;
+      analyser.smoothingTimeConstant = 0.7;
+      source.connect(analyser);
+      analyserRef.current = analyser;
+
       const scriptProcessor = context.createScriptProcessor(4096, 1, 1);
       const silent = context.createGain();
       silent.gain.value = 0;
@@ -224,6 +275,22 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
       setActiveSource("microphone");
       setIsStreaming(true);
       setSourceStatus("Microphone live · first score arrives after 3 seconds");
+
+      // Start live visualizer equalizer loop
+      const freqData = new Uint8Array(analyser.frequencyBinCount);
+      const updateVisuals = () => {
+        if (!analyserRef.current || activeSourceRef.current !== "microphone") return;
+        analyserRef.current.getByteFrequencyData(freqData);
+        const bars: number[] = [];
+        const step = Math.max(1, Math.floor(freqData.length / 8));
+        for (let i = 0; i < 8; i++) {
+          const val = freqData[i * step] || 0;
+          bars.push(Math.min(100, Math.max(15, Math.round((val / 255) * 100))));
+        }
+        setMicBars(bars);
+        animFrameRef.current = requestAnimationFrame(updateVisuals);
+      };
+      animFrameRef.current = requestAnimationFrame(updateVisuals);
     } catch (error) {
       setSourceStatus(error instanceof Error ? error.message : "Could not start microphone");
       await stopAudio(false);
@@ -386,10 +453,31 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
 
       <header className="topbar">
         <Link className="brand" href="/" aria-label="SvaraSentry home">
-          <span className="brand-mark" aria-hidden>
-            <i style={{ height: "10px" }} />
-            <i style={{ height: "20px", animationDelay: "-0.3s" }} />
-            <i style={{ height: "14px", animationDelay: "-0.7s" }} />
+          <span className="brand-mark" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="brandShield" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stopColor="#38bdf8" />
+                  <stop offset="50%" stopColor="#60a5fa" />
+                  <stop offset="100%" stopColor="#2563eb" />
+                </linearGradient>
+                <linearGradient id="brandWave" x1="12" y1="6" x2="12" y2="18" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stopColor="#ffffff" />
+                  <stop offset="100%" stopColor="#7dd3fc" />
+                </linearGradient>
+              </defs>
+              <path
+                d="M12 2.5L4.5 5.5V11.5C4.5 16.2 7.7 20.6 12 21.8C16.3 20.6 19.5 16.2 19.5 11.5V5.5L12 2.5Z"
+                stroke="url(#brandShield)"
+                strokeWidth="1.8"
+                strokeLinejoin="round"
+                fill="rgba(56, 189, 248, 0.12)"
+              />
+              <path d="M8 10V14" stroke="url(#brandWave)" strokeWidth="2" strokeLinecap="round" />
+              <path d="M10.7 7.5V16.5" stroke="url(#brandWave)" strokeWidth="2" strokeLinecap="round" />
+              <path d="M13.3 6V18" stroke="#ffffff" strokeWidth="2.2" strokeLinecap="round" />
+              <path d="M16 8.5V15.5" stroke="url(#brandWave)" strokeWidth="2" strokeLinecap="round" />
+            </svg>
           </span>
           <span>Svara<span>Sentry</span></span>
         </Link>
@@ -422,7 +510,7 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
         </section>
       )}
 
-      <section className="decision-panel">
+      <section className={`decision-panel ${isStreaming && activeSource === "microphone" ? "has-prominent-mic" : ""}`}>
         <div className="decision-copy">
           <span className="section-kicker"><i className={result ? "live-dot" : ""} />LIVE ANALYSIS</span>
           <h1>{decision[0]}</h1>
@@ -444,6 +532,49 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
           </div>
           <p className="source-status" role="status">{sourceStatus}</p>
         </div>
+
+        {/* Big Prominent Live Microphone Centerpiece */}
+        {isStreaming && activeSource === "microphone" && (
+          <div className="prominent-mic-centerpiece" aria-label="Microphone live recording active">
+            <div className="big-mic-orb-wrapper" onClick={() => void stopAudio()} title="Click to stop microphone">
+              <span className="big-mic-sonar" />
+              <span className="big-mic-sonar delay-1" />
+              <span className="big-mic-sonar delay-2" />
+              <div className="big-mic-orb">
+                <Mic size={38} strokeWidth={2.2} />
+              </div>
+            </div>
+
+            <div className="big-mic-status">
+              <span className="big-rec-badge">
+                <span className="big-rec-dot" /> LIVE RECORDING
+              </span>
+              <span className="big-mic-timer">{formatSeconds(recordingSeconds)}</span>
+              <span className="big-mic-caption">Acoustic Stream · 16 kHz</span>
+            </div>
+
+            <div className="big-mic-equalizer" aria-hidden="true">
+              {micBars.map((height, i) => (
+                <span
+                  key={i}
+                  className="big-eq-bar"
+                  style={{ height: `${Math.max(6, Math.round(height * 0.28))}px` }}
+                />
+              ))}
+            </div>
+
+            <button
+              type="button"
+              className="big-mic-stop-btn"
+              onClick={() => void stopAudio()}
+              title="Stop microphone recording"
+            >
+              <Square size={11} fill="currentColor" />
+              <span>Stop Recording</span>
+            </button>
+          </div>
+        )}
+
         <div className="score-wrap">
           <span className="score-label">CURRENT RISK</span>
           <div className="gauge" style={{ "--risk": riskPercent ?? 0 } as CSSProperties}>
@@ -567,6 +698,47 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
           </div>
           <a className="pair-link" href={pairingUrl}>{pairingUrl}</a>
         </Modal>
+      )}
+
+      {/* Live Recording Microphone HUD Pop-up (visible when scrolled down past hero) */}
+      {isStreaming && activeSource === "microphone" && scrolledPastHero && (
+        <aside className="live-mic-popup" role="status" aria-label="Microphone live recording active">
+          <div className="mic-pulse-wrapper">
+            <span className="mic-pulse-ring" />
+            <span className="mic-pulse-ring delay" />
+            <Mic size={16} />
+          </div>
+
+          <div className="mic-info">
+            <div className="mic-header">
+              <span className="rec-badge">
+                <span className="rec-dot" /> REC
+              </span>
+              <span className="rec-timer">{formatSeconds(recordingSeconds)}</span>
+            </div>
+            <span className="rec-status-line">Streaming live audio · Wav2Vec2 active</span>
+          </div>
+
+          <div className="mic-equalizer" aria-hidden="true">
+            {micBars.map((height, i) => (
+              <span
+                key={i}
+                className="eq-bar"
+                style={{ height: `${height}%` }}
+              />
+            ))}
+          </div>
+
+          <button
+            type="button"
+            className="mic-stop-btn"
+            onClick={() => void stopAudio()}
+            title="Stop microphone recording"
+          >
+            <Square size={10} fill="currentColor" />
+            <span>Stop Recording</span>
+          </button>
+        </aside>
       )}
     </main>
   );

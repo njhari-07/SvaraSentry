@@ -90,22 +90,22 @@
   --pat-dark: rgba(0, 0, 0, 0.22);
 }
 
-/* Theme: Matte Solid Blue (Clean, Neat & Architectural) */
+/* Theme: Luminous Light Blue */
 .wm-color-blue {
-  --b1: #1e40af;
-  --b2: #2563eb;
-  --b3: #1d4ed8;
-  --b4: #1e3a8a;
-  --b5: #0f2b5c;
-  --b6: #2b4c7e;
-  --b7: #3b82f6;
-  --b8: #172554;
-  --b9: #1e3a5f;
-  --b10: #0369a1;
-  --b11: #334e68;
-  --b12: #0b192c;
-  --pat-light: rgba(255, 255, 255, 0.16);
-  --pat-dark: rgba(0, 0, 0, 0.18);
+  --b1: #3b82f6;
+  --b2: #60a5fa;
+  --b3: #38bdf8;
+  --b4: #2563eb;
+  --b5: #1d4ed8;
+  --b6: #7dd3fc;
+  --b7: #93c5fd;
+  --b8: #1e40af;
+  --b9: #0ea5e9;
+  --b10: #4f8bf9;
+  --b11: #bae6fd;
+  --b12: #1e3a8a;
+  --pat-light: rgba(255, 255, 255, 0.32);
+  --pat-dark: rgba(10, 40, 90, 0.20);
 }
 
 /* Theme: Emerald / Defense Green */

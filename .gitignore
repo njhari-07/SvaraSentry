@@ -42,3 +42,5 @@ data/augmentation_assets/
 runs/
 training/checkpoints/*
 !training/checkpoints/.gitkeep
+output/
+tmp/

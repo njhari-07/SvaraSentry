@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Mic, Upload, Activity, Zap, Volume2, UserCheck, ArrowLeft, ShieldCheck, Radio, Lock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Mic, Upload, Activity, Zap, Volume2, UserCheck, ArrowLeft, ShieldCheck, Radio, Lock, Square } from 'lucide-react';
 import { WovenSkeleton } from '../WovenSkeleton';
 import { WelcomeModal } from '../WelcomeModal';
 import './Dashboard.css';
@@ -13,6 +13,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ onBackToLanding }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [modalStep, setModalStep] = useState(1);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | null = null;
+    if (isRecording) {
+      setRecordingSeconds(0);
+      timer = setInterval(() => setRecordingSeconds((s) => s + 1), 1000);
+    } else {
+      setRecordingSeconds(0);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [isRecording]);
+
+  const formatSeconds = (total: number) => {
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
 
   const handleMicClick = () => {
     if (isRecording) {
@@ -78,6 +98,32 @@ export const Dashboard: React.FC<DashboardProps> = ({ onBackToLanding }) => {
       {/* 1. Header Topbar */}
       <header className="dash-topbar">
         <div className="dash-brand">
+          <span className="brand-mark" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="dashShield" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stopColor="#38bdf8" />
+                  <stop offset="50%" stopColor="#60a5fa" />
+                  <stop offset="100%" stopColor="#2563eb" />
+                </linearGradient>
+                <linearGradient id="dashWave" x1="12" y1="6" x2="12" y2="18" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stopColor="#ffffff" />
+                  <stop offset="100%" stopColor="#7dd3fc" />
+                </linearGradient>
+              </defs>
+              <path
+                d="M12 2.5L4.5 5.5V11.5C4.5 16.2 7.7 20.6 12 21.8C16.3 20.6 19.5 16.2 19.5 11.5V5.5L12 2.5Z"
+                stroke="url(#dashShield)"
+                strokeWidth="1.8"
+                strokeLinejoin="round"
+                fill="rgba(56, 189, 248, 0.12)"
+              />
+              <path d="M8 10V14" stroke="url(#dashWave)" strokeWidth="2" strokeLinecap="round" />
+              <path d="M10.7 7.5V16.5" stroke="url(#dashWave)" strokeWidth="2" strokeLinecap="round" />
+              <path d="M13.3 6V18" stroke="#ffffff" strokeWidth="2.2" strokeLinecap="round" />
+              <path d="M16 8.5V15.5" stroke="url(#dashWave)" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </span>
           <span>SvaraSentry<span className="dot">.</span></span>
           <span className="badge">DEFENSE</span>
         </div>
@@ -108,30 +154,77 @@ export const Dashboard: React.FC<DashboardProps> = ({ onBackToLanding }) => {
       </header>
 
       {/* 2. Main Decision Panel */}
-      <section className="dash-decision-panel">
+      <section className={`dash-decision-panel ${isRecording ? 'has-prominent-mic' : ''}`}>
         <div className="dash-decision-copy">
           <div className="dash-kicker">
             <span className="dot" />
             <span>LIVE ANALYSIS</span>
           </div>
-          <h1>Ready to monitor</h1>
-          <p>Choose a microphone or audio file to begin real-time deepfake authenticity analysis.</p>
+          <h1>{isRecording ? 'Voice stream active' : 'Ready to monitor'}</h1>
+          <p>{isRecording ? 'Continuous acoustic stream analysis in progress.' : 'Choose a microphone or audio file to begin real-time deepfake authenticity analysis.'}</p>
 
           <div className="flex flex-wrap gap-3">
             <button
-              className="dash-btn-primary"
+              className={`dash-btn-primary ${isRecording ? 'bg-red-500/20 text-red-400 border-red-500/40' : ''}`}
               onClick={handleMicClick}
             >
-              <Mic className="w-4 h-4" />
+              {isRecording ? <Square className="w-4 h-4 fill-current" /> : <Mic className="w-4 h-4" />}
               <span>{isRecording ? 'Stop stream' : 'Start microphone'}</span>
             </button>
 
-            <button className="dash-btn-secondary">
-              <Upload className="w-4 h-4" />
-              <span>Analyze a file</span>
-            </button>
+            {!isRecording && (
+              <button className="dash-btn-secondary">
+                <Upload className="w-4 h-4" />
+                <span>Analyze a file</span>
+              </button>
+            )}
           </div>
         </div>
+
+        {/* Big Prominent Live Microphone Centerpiece */}
+        {isRecording && (
+          <div className="dash-prominent-mic" aria-label="Microphone live recording active">
+            <div className="dash-mic-orb-wrap" onClick={handleMicClick} title="Click to stop microphone">
+              <span className="dash-mic-sonar" />
+              <span className="dash-mic-sonar delay-1" />
+              <span className="dash-mic-sonar delay-2" />
+              <div className="dash-mic-orb">
+                <Mic className="w-9 h-9" />
+              </div>
+            </div>
+
+            <div className="dash-mic-status">
+              <span className="dash-rec-badge">
+                <span className="dash-rec-dot" /> LIVE RECORDING
+              </span>
+              <span className="dash-mic-timer">{formatSeconds(recordingSeconds)}</span>
+              <span className="dash-mic-caption">Acoustic Stream · 16 kHz</span>
+            </div>
+
+            <div className="dash-mic-equalizer" aria-hidden="true">
+              {[35, 75, 50, 90, 65, 80, 45, 60].map((h, i) => (
+                <span
+                  key={i}
+                  className="dash-eq-bar"
+                  style={{
+                    height: `${h}%`,
+                    animation: `pulseHeight 0.8s ease-in-out infinite alternate ${i * 0.1}s`,
+                  }}
+                />
+              ))}
+            </div>
+
+            <button
+              type="button"
+              className="dash-mic-stop-btn"
+              onClick={handleMicClick}
+              title="Stop microphone recording"
+            >
+              <Square className="w-3 h-3 fill-current" />
+              <span>Stop Recording</span>
+            </button>
+          </div>
+        )}
 
         <div className="dash-gauge-wrap">
           <div className="dash-gauge" style={{ ['--risk' as string]: 0 }}>
