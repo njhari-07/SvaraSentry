@@ -127,11 +127,12 @@ a{ color:inherit; text-decoration:none; }
 ::selection{ background:rgba(34,140,255,0.45); color:#fff; }
 /* ---------------- Fluid canvas ---------------- */
 #c{ position:fixed; inset:0; width:100vw; height:100vh; display:block; z-index:0; pointer-events:none;
-background:radial-gradient(120% 120% at 50% 38%, rgba(14, 26, 60, 0.70) 0%, rgba(7, 12, 30, 0.50) 55%, rgba(3, 5, 15, 0.35) 100%); }
+filter: brightness(0.75) contrast(0.96);
+background:radial-gradient(120% 120% at 50% 38%, rgba(10, 20, 48, 0.62) 0%, rgba(5, 9, 24, 0.42) 55%, rgba(2, 4, 12, 0.32) 100%); }
 #vig{ position:fixed; inset:0; z-index:1; pointer-events:none;
-background:radial-gradient(135% 105% at 50% 50%, transparent 55%, rgba(2,3,8,0.42) 100%); mix-blend-mode:multiply; }
+background:radial-gradient(135% 105% at 50% 50%, transparent 48%, rgba(2,3,8,0.52) 100%); mix-blend-mode:multiply; }
 /* uniform readability scrim over the fluid (keeps fluid visible, lifts text contrast) */
-#scrim{ position:fixed; inset:0; z-index:1; pointer-events:none; background:rgba(4,6,14,0.12); backdrop-filter:blur(1px); -webkit-backdrop-filter:blur(1px); }
+#scrim{ position:fixed; inset:0; z-index:1; pointer-events:none; background:rgba(4,6,14,0.24); backdrop-filter:blur(1px); -webkit-backdrop-filter:blur(1px); }
 /* film grain */
 #grain{ position:fixed; inset:-50%; z-index:2; pointer-events:none; opacity:0.06; mix-blend-mode:overlay;
 background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
@@ -702,7 +703,7 @@ filter:drop-shadow(0 0 6px rgba(79,116,255,0.8)); border-radius:3px; }
     PRESSURE:0.8, PRESSURE_ITERATIONS:26, CURL:16,
     SPLAT_RADIUS:0.28, SPLAT_FORCE:3600,
     SHADING:true, BLOOM:true, BLOOM_ITERATIONS:8, BLOOM_RESOLUTION:256,
-    BLOOM_INTENSITY:0.85, BLOOM_THRESHOLD:0.58, BLOOM_SOFT_KNEE:0.7,
+    BLOOM_INTENSITY:0.64, BLOOM_THRESHOLD:0.65, BLOOM_SOFT_KNEE:0.7,
     COLOR_UPDATE_SPEED:7.0, AUTO_PAINT:true, PAUSED:false,
   };
   if (reduceMotion){ config.PRESSURE_ITERATIONS=18; config.SIM_RESOLUTION=160; config.DYE_RESOLUTION=768; }
@@ -761,7 +762,7 @@ filter:drop-shadow(0 0 6px rgba(79,116,255,0.8)); border-radius:3px; }
     #ifdef BLOOM
       vec3 bloom=texture2D(uBloom,vUv).rgb; bloom=linearToGamma(bloom); c+=bloom;
     #endif
-      c=max(c,vec3(0.0)); float lum=max(c.r,max(c.g,c.b)); if(lum>0.0001){ float mapped=lum/(1.0+0.55*max(lum-0.85,0.0)); mapped=min(mapped,0.97); c*=mapped/lum; } float a=max(c.r,max(c.g,c.b)); gl_FragColor=vec4(c,a); }`;
+      c=max(c,vec3(0.0)); float lum=max(c.r,max(c.g,c.b)); if(lum>0.0001){ float mapped=lum/(1.0+0.55*max(lum-0.85,0.0)); mapped=min(mapped,0.97); c*=mapped/lum; } c*=0.75; float a=max(c.r,max(c.g,c.b)); gl_FragColor=vec4(c,a); }`;
   const splatShader=compileShader(gl.FRAGMENT_SHADER,`precision highp float; precision highp sampler2D; varying vec2 vUv; uniform sampler2D uTarget; uniform float aspectRatio; uniform vec3 color; uniform vec2 point; uniform float radius; void main(){ vec2 p=vUv-point.xy; p.x*=aspectRatio; vec3 splat=exp(-dot(p,p)/radius)*color; vec3 base=texture2D(uTarget,vUv).xyz; gl_FragColor=vec4(base+splat,1.0); }`);
   const advectionShader=compileShader(gl.FRAGMENT_SHADER,`precision highp float; precision highp sampler2D; varying vec2 vUv; uniform sampler2D uVelocity; uniform sampler2D uSource; uniform vec2 texelSize; uniform vec2 dyeTexelSize; uniform float dt; uniform float dissipation; vec4 bilerp(sampler2D sam,vec2 uv,vec2 tsize){ vec2 st=uv/tsize-0.5; vec2 iuv=floor(st); vec2 fuv=fract(st); vec4 a=texture2D(sam,(iuv+vec2(0.5,0.5))*tsize); vec4 b=texture2D(sam,(iuv+vec2(1.5,0.5))*tsize); vec4 c=texture2D(sam,(iuv+vec2(0.5,1.5))*tsize); vec4 d=texture2D(sam,(iuv+vec2(1.5,1.5))*tsize); return mix(mix(a,b,fuv.x),mix(c,d,fuv.x),fuv.y); } void main(){
     #ifdef MANUAL_FILTERING
