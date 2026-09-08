@@ -10,7 +10,6 @@ import json
 from collections.abc import Mapping
 from typing import Protocol
 
-
 SYSTEM_GUARDRAIL = """You explain voice-clone risk to a non-technical operator.
 Use only the supplied structured evidence. Never claim that a spectrogram colour,
 a specific frequency, or a model score proves a voice is fake. Preserve the stated

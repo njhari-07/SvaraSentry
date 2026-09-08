@@ -11,7 +11,6 @@ from collections.abc import Callable, Iterable
 
 import numpy as np
 
-
 DEFAULT_BANDS_HZ: tuple[tuple[int, int], ...] = (
     (0, 300),
     (300, 3_000),

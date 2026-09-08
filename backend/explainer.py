@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-
 _ACTIONS = {
     "none": "Continue monitoring. Stay alert to unusual requests.",
     "caution": "Pause sensitive actions and verify the caller independently.",

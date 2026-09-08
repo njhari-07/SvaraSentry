@@ -7,8 +7,7 @@ from pathlib import Path
 import numpy as np
 
 from backend.attribution import occlude_frequency_bands, occlude_time_regions, top_time_regions
-from backend.inference import AttributionOptions
-from backend.inference import InferenceResult
+from backend.inference import AttributionOptions, InferenceResult
 from backend.spectrogram import pcm_float, signal_metrics
 from backend.streaming import AudioChunk
 
