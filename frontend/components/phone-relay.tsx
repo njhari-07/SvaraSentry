@@ -132,5 +132,39 @@ export function PhoneRelay() {
   }
 
   const live = state === "streaming" || state === "reconnecting";
-  return <main className="phone-shell"><header className="phone-header"><span className="brand-mark" aria-hidden>|||</span><strong>Svara<span>Sentry</span></strong><small>PHONE RELAY</small></header><section className="relay-card"><div className={`orb ${live ? "live" : ""}`}><span>●</span></div><h1>{state === "streaming" ? "Relaying securely" : state === "reconnecting" ? "Reconnecting" : state === "error" ? "Action needed" : "Ready to relay"}</h1><p>{copy}</p>{live && <dl className="relay-stats"><div><dt>Input level</dt><dd>{level ?? "—"} dBFS</dd></div><div><dt>Elapsed</dt><dd>{String(Math.floor(elapsed / 60)).padStart(2, "0")}:{String(elapsed % 60).padStart(2, "0")}</dd></div><div><dt>Dropped frames</dt><dd>{droppedFrames}</dd></div></dl>}<button className={live ? "button danger" : "button primary"} type="button" disabled={!usable && state !== "error"} onClick={() => void (live ? stop() : start())}>{live ? "Stop relay" : "Start relay"}</button><p className="privacy-note">Audio is streamed only for this live session and is not stored by the server.</p></section><Link href="/">Open dashboard</Link></main>;
+  const heading = state === "streaming" ? "Relay is live" : state === "reconnecting" ? "Reconnecting relay" : state === "error" ? "Pairing required" : "Ready to relay";
+
+  return (
+    <main className="phone-shell">
+      <header className="phone-header">
+        <Link className="phone-brand" href="/" aria-label="SvaraSentry home">
+          <span className="brand-mark" aria-hidden>|||</span>
+          <strong>Svara<span>Sentry</span></strong>
+        </Link>
+        <small>PHONE RELAY</small>
+      </header>
+
+      <section className="relay-card">
+        <div className="relay-state">
+          <span className={`relay-state-dot ${live ? "live" : ""}`} aria-hidden />
+          <span>{live ? "STREAMING" : state === "error" ? "NOT PAIRED" : "STANDBY"}</span>
+        </div>
+        <h1>{heading}</h1>
+        <p>{copy}</p>
+
+        {live && (
+          <dl className="relay-stats">
+            <div><dt>Input level</dt><dd>{level ?? "—"} dBFS</dd></div>
+            <div><dt>Elapsed</dt><dd>{String(Math.floor(elapsed / 60)).padStart(2, "0")}:{String(elapsed % 60).padStart(2, "0")}</dd></div>
+            <div><dt>Dropped frames</dt><dd>{droppedFrames}</dd></div>
+          </dl>
+        )}
+
+        <button className={live ? "button danger" : "button primary"} type="button" disabled={!usable && state !== "error"} onClick={() => void (live ? stop() : start())}>{live ? "Stop relay" : "Start relay"}</button>
+        <div className="relay-privacy"><span>16 kHz PCM</span><span>Session only</span><span>No server storage</span></div>
+      </section>
+
+      <Link className="phone-dashboard-link" href="/">Open dashboard</Link>
+    </main>
+  );
 }

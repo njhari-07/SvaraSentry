@@ -445,18 +445,7 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
           <p className="source-status" role="status">{sourceStatus}</p>
         </div>
         <div className="score-wrap">
-          {/* Decorative Visora Wireframe Globe Ring Pattern */}
-          <svg className="dial-wireframe-globe" viewBox="0 0 260 260" fill="none" aria-hidden="true">
-            <circle cx="130" cy="130" r="124" stroke="currentColor" strokeWidth="0.75" opacity="0.35" />
-            <circle cx="130" cy="130" r="92" stroke="currentColor" strokeWidth="0.75" opacity="0.25" />
-            <circle cx="130" cy="130" r="60" stroke="currentColor" strokeWidth="0.75" opacity="0.2" />
-            <ellipse cx="130" cy="130" rx="124" ry="38" stroke="currentColor" strokeWidth="0.75" opacity="0.25" />
-            <ellipse cx="130" cy="130" rx="124" ry="76" stroke="currentColor" strokeWidth="0.75" opacity="0.25" />
-            <ellipse cx="130" cy="130" rx="38" ry="124" stroke="currentColor" strokeWidth="0.75" opacity="0.25" />
-            <ellipse cx="130" cy="130" rx="76" ry="124" stroke="currentColor" strokeWidth="0.75" opacity="0.25" />
-            <line x1="6" y1="130" x2="254" y2="130" stroke="currentColor" strokeWidth="0.75" opacity="0.25" />
-            <line x1="130" y1="6" x2="130" y2="254" stroke="currentColor" strokeWidth="0.75" opacity="0.25" />
-          </svg>
+          <span className="score-label">CURRENT RISK</span>
           <div className="gauge" style={{ "--risk": riskPercent ?? 0 } as CSSProperties}>
             <div className="gauge-inner">
               <strong>{riskPercent ?? "—"}</strong>
@@ -467,6 +456,7 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
           <span className={`risk-badge ${result ? level : "neutral"}`}>
             {result ? (level === "none" ? "Low risk" : level) : "Waiting"}
           </span>
+          <span className="score-caption">Smoothed across active audio windows</span>
         </div>
       </section>
 
