@@ -1,2 +1,2 @@
-"""SvaraSentry runtime package."""
+"""ChhayaSwara runtime package."""
 

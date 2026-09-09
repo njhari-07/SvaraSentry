@@ -1,5 +1,5 @@
 /**
- * acoustic_panel.js — Acoustic view module for SvaraSentry dashboard.
+ * acoustic_panel.js — Acoustic view module for ChhayaSwara dashboard.
  *
  * Owns all rendering logic for the spectrogram panel:
  *   - Spectrogram image with fade transition

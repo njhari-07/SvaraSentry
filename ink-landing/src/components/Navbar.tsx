@@ -33,7 +33,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onLaunchMonitor }) => {
         <a href="/" className="flex items-center gap-3 group">
           <div className="flex items-center gap-1.5">
             <span className="font-extrabold text-2xl tracking-tighter text-white group-hover:text-cyan-300 transition-colors">
-              SvaraSentry
+              ChhayaSwara
             </span>
             <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_10px_#00f2fe]" />
           </div>

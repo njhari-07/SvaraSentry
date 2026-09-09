@@ -482,11 +482,11 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
       />
 
       <header className="topbar">
-        <Link className="brand" href="/" aria-label="SvaraSentry home">
+        <Link className="brand" href="/" aria-label="ChhayaSwara home">
           <span className="brand-mark" aria-hidden="true">
             <AudioWaveform size={18} strokeWidth={2.2} />
           </span>
-          <span>Svara<span>Sentry</span></span>
+          <span>Chhaya<span>Swara</span></span>
         </Link>
         <div className="topbar-actions">
           {onBackToLanding && (
@@ -512,7 +512,7 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
       </header>
 
       {/* 1. Hero Section (Full first viewport) */}
-      <section className="hero-viewport" aria-label="SvaraSentry voice authenticity hero">
+      <section className="hero-viewport" aria-label="ChhayaSwara voice authenticity hero">
         {/* Eyebrow line */}
         <div className="hero-eyebrow font-tabular">
           <span className="eyebrow-item">THE DETECTOR</span>
@@ -648,7 +648,7 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
                       cy="50"
                       r="44"
                       fill="none"
-                      stroke={level === "none" ? "#3f8cff" : level === "caution" ? "#fbbf24" : "#f87171"}
+                      stroke={level === "none" ? "#22c55e" : level === "caution" ? "#fbbf24" : "#f87171"}
                       strokeWidth="7"
                       strokeDasharray={276.46}
                       strokeDashoffset={276.46 * (1 - Math.min(100, Math.max(0, riskPercent ?? 12)) / 100)}
@@ -983,7 +983,7 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
       {/* 6. Footer: minimal, letter-spaced small labels, thin link columns */}
       <footer className="dash-footer">
         <div className="footer-brand">
-          <span className="footer-title">SVARASENTRY</span>
+          <span className="footer-title">CHHAYASWARA</span>
           <span className="footer-meta">REAL-TIME AI VOICE DEEPFAKE MONITOR</span>
         </div>
         <div className="footer-specs font-tabular">

@@ -1,4 +1,4 @@
-"""Deterministic signal-processing tests for SvaraSentry.
+"""Deterministic signal-processing tests for ChhayaSwara.
 
 Test plan
 ---------
@@ -30,7 +30,7 @@ Group D — Transport and performance (new):
   D2  as_dict keys match the transport contract documented in the spec
   D3  render_base64 shim returns the same bytes as the structured path
   D4  rendering time stays within 150 ms per window on this machine
-       (skipped unless env SVARASENTRY_PERF_TESTS=1)
+       (skipped unless env SWARASENTRY_PERF_TESTS=1 or SVARASENTRY_PERF_TESTS=1)
 """
 
 from __future__ import annotations
@@ -395,8 +395,8 @@ class TransportContractTests(unittest.TestCase):
         self.assertEqual(structured, shim)
 
     def test_d4_rendering_time_within_budget(self):
-        if not os.getenv("SVARASENTRY_PERF_TESTS"):
-            self.skipTest("Set SVARASENTRY_PERF_TESTS=1 to run performance tests")
+        if not (os.getenv("CHHAYASWARA_PERF_TESTS") or os.getenv("SWARASENTRY_PERF_TESTS") or os.getenv("SVARASENTRY_PERF_TESTS")):
+            self.skipTest("Set CHHAYASWARA_PERF_TESTS=1 to run performance tests")
         renderer = SpectrogramRenderer()  # full 560×180 size
         chunk = tone_chunk()
         # warm up

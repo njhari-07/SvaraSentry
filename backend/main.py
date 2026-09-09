@@ -96,7 +96,7 @@ def new_session(session_id: str) -> SessionState:
 sessions: dict[str, SessionState] = {}
 dashboard_clients: dict[str, set[WebSocket]] = defaultdict(set)
 app = FastAPI(
-    title="SvaraSentry API",
+    title="ChhayaSwara API",
     version="0.2.0",
     description="Realtime transport and inference boundary for voice-clone risk analysis.",
 )

@@ -124,7 +124,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onBackToLanding }) => {
               <path d="M16 8.5V15.5" stroke="url(#dashWave)" strokeWidth="2" strokeLinecap="round" />
             </svg>
           </span>
-          <span>SvaraSentry<span className="dot">.</span></span>
+          <span>ChhayaSwara<span className="dot">.</span></span>
           <span className="badge">DEFENSE</span>
         </div>
 
@@ -240,7 +240,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onBackToLanding }) => {
       {/* 3. Session Metrics Grid */}
       <section className="dash-metric-grid">
         <div className="dash-metric-card">
-          <div className="w-9 h-9 rounded-lg bg-blue-500/10 border border-blue-500/20 grid place-content-center text-blue-400">
+          <div className="w-9 h-9 rounded-lg bg-white/[0.05] border border-white/10 grid place-content-center text-white/70">
             <Activity className="w-4 h-4" />
           </div>
           <div>
@@ -251,7 +251,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onBackToLanding }) => {
         </div>
 
         <div className="dash-metric-card">
-          <div className="w-9 h-9 rounded-lg bg-cyan-500/10 border border-cyan-500/20 grid place-content-center text-cyan-400">
+          <div className="w-9 h-9 rounded-lg bg-white/[0.05] border border-white/10 grid place-content-center text-white/70">
             <Volume2 className="w-4 h-4" />
           </div>
           <div>
@@ -262,7 +262,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onBackToLanding }) => {
         </div>
 
         <div className="dash-metric-card">
-          <div className="w-9 h-9 rounded-lg bg-sky-500/10 border border-sky-500/20 grid place-content-center text-sky-400">
+          <div className="w-9 h-9 rounded-lg bg-white/[0.05] border border-white/10 grid place-content-center text-white/70">
             <Zap className="w-4 h-4" />
           </div>
           <div>
@@ -273,7 +273,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onBackToLanding }) => {
         </div>
 
         <div className="dash-metric-card">
-          <div className="w-9 h-9 rounded-lg bg-indigo-500/10 border border-indigo-500/20 grid place-content-center text-indigo-400">
+          <div className="w-9 h-9 rounded-lg bg-white/[0.05] border border-white/10 grid place-content-center text-white/70">
             <UserCheck className="w-4 h-4" />
           </div>
           <div>

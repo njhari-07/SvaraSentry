@@ -1,4 +1,4 @@
-// SvaraSentry Real-Time WebGL Fluid Engine & Scroll Controller
+// ChhayaSwara Real-Time WebGL Fluid Engine & Scroll Controller
 
 "use strict";
 (function () {

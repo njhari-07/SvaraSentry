@@ -1,8 +1,8 @@
-# SvaraSentry
+# ChhayaSwara
 
 > Real-time AI voice-deepfake recognition and identity-risk monitoring.
 
-SvaraSentry protects live voice interactions by continuously analyzing speech for signs of
+ChhayaSwara protects live voice interactions by continuously analyzing speech for signs of
 AI generation or voice cloning. It accepts audio from a computer microphone, uploaded file,
 or phone relay; evaluates overlapping speech windows with a trained anti-spoofing model; and
 turns the result into clear, actionable guidance on a live dashboard.
@@ -68,7 +68,7 @@ Organizations therefore need a system that can:
 
 ## Product solution
 
-SvaraSentry standardizes incoming audio, creates overlapping analysis windows, runs a trained
+ChhayaSwara standardizes incoming audio, creates overlapping analysis windows, runs a trained
 deepfake-recognition model, optionally compares the voice with an enrolled reference, smooths
 short-term score fluctuations, and sends the result to every authorized dashboard watching the
 session.
@@ -275,7 +275,7 @@ structure to analyze, while the one-second stride provides continuous updates.
 
 ## Deepfake-recognition model
 
-SvaraSentry uses a pretrained Wav2Vec2 speech encoder and fine-tunes it for binary
+ChhayaSwara uses a pretrained Wav2Vec2 speech encoder and fine-tunes it for binary
 anti-spoofing. The encoder learns representations directly from raw speech, while a compact
 attention head identifies useful temporal regions and produces the final authenticity logit.
 
@@ -608,7 +608,7 @@ transport: bounded binary WebSocket frames
   "evidence_quality": "usable_speech",
   "identity_match": 0.43,
   "voice_enrolled": true,
-  "model_version": "svarasentry-w2v2-1.0.0",
+  "model_version": "chhayaswara-w2v2-1.0.0",
   "calibration_version": "cal-1.0.0",
   "flagged_region": {
     "time_offset_ms": [1120, 1280],
@@ -655,7 +655,7 @@ integrity before declaring readiness.
 ## Repository structure
 
 ```text
-SvaraSentry/
+ChhayaSwara/
 ├── backend/
 │   ├── main.py                 # API, WebSockets, sessions, and orchestration
 │   ├── streaming.py            # PCM buffering and overlapping windows
@@ -747,10 +747,10 @@ attention evidence. They are disabled by default because they add model passes a
 live-stream latency:
 
 ```bash
-SVARASENTRY_MODEL_MODE=checkpoint
-SVARASENTRY_EXPLAIN_OCCLUSION=1        # silence each influential time region and re-score
-SVARASENTRY_EXPLAIN_BAND_OCCLUSION=1   # attenuate broad frequency bands and re-score
-SVARASENTRY_EXPLAIN_INTEGRATED_GRADIENTS=1
+CHHAYASWARA_MODEL_MODE=checkpoint
+CHHAYASWARA_EXPLAIN_OCCLUSION=1        # silence each influential time region and re-score
+CHHAYASWARA_EXPLAIN_BAND_OCCLUSION=1   # attenuate broad frequency bands and re-score
+CHHAYASWARA_EXPLAIN_INTEGRATED_GRADIENTS=1
 ```
 
 Band occlusion reports only broad-band score sensitivity; it must not be described as a proven
@@ -806,7 +806,7 @@ The finalized product is judged across model quality, user value, performance, a
 
 This README maps directly to a project presentation:
 
-1. **Title:** SvaraSentry—real-time AI voice-deepfake recognition
+1. **Title:** ChhayaSwara—real-time AI voice-deepfake recognition
 2. **Problem:** Synthetic voice fraud is difficult to identify during a live call
 3. **Users and scenarios:** Individuals, banks, call centers, and security teams
 4. **Solution:** Continuous detection with understandable response guidance
@@ -823,7 +823,7 @@ This README maps directly to a project presentation:
 
 ## Responsible use
 
-SvaraSentry provides decision support, not absolute proof. Operators should verify high-impact
+ChhayaSwara provides decision support, not absolute proof. Operators should verify high-impact
 requests using an independent trusted channel. The system must be used with appropriate consent,
 lawful authority, documented retention rules, and properly licensed datasets and model assets.
 

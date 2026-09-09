@@ -9,7 +9,7 @@ export const CodeBlock: React.FC = () => {
 import websockets
 import json
 
-# Connect to SvaraSentry Real-Time Audio Telemetry WebSocket
+# Connect to ChhayaSwara Real-Time Audio Telemetry WebSocket
 async def stream_audio_telemetry():
     uri = "ws://localhost:8000/ws/audio/active-call-001"
     async with websockets.connect(uri) as ws:
@@ -134,7 +134,7 @@ async def stream_audio_telemetry():
               <span className="text-pink-400">import</span> asyncio{"\n"}
               <span className="text-pink-400">import</span> websockets{"\n"}
               <span className="text-pink-400">import</span> json{"\n\n"}
-              <span className="text-white/40"># Connect to SvaraSentry Real-Time Audio Telemetry WebSocket</span>{"\n"}
+              <span className="text-white/40"># Connect to ChhayaSwara Real-Time Audio Telemetry WebSocket</span>{"\n"}
               <span className="text-pink-400">async def</span> <span className="text-violet-300 font-bold">stream_audio_telemetry</span>():{"\n"}
               {"  "}uri = <span className="text-green-300">"ws://localhost:8000/ws/audio/active-call-001"</span>{"\n"}
               {"  "}<span className="text-pink-400">async with</span> websockets.connect(uri) <span className="text-pink-400">as</span> ws:{"\n"}

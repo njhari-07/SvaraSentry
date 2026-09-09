@@ -87,9 +87,9 @@
   letter-spacing: 0.12em;
   padding: 3px 7px;
   border-radius: 4px;
-  background: rgba(56, 189, 248, 0.1);
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  color: var(--blue);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  color: var(--muted);
   text-transform: uppercase;
 }
 
@@ -158,9 +158,9 @@
   height: 38px;
   padding: 0 14px;
   border-radius: 999px;
-  background: rgba(56, 189, 248, 0.08);
-  border: 1px solid rgba(56, 189, 248, 0.2);
-  color: var(--blue);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  color: var(--muted);
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.78rem;
   font-weight: 600;
@@ -170,8 +170,8 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--blue);
-  box-shadow: 0 0 8px var(--blue);
+  background: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
 }
 
 /* Decision Panel */
@@ -213,12 +213,11 @@
   z-index: 3;
   padding: 20px 24px;
   border-radius: 20px;
-  background: radial-gradient(circle at 50% 35%, rgba(14, 165, 233, 0.15) 0%, rgba(10, 24, 52, 0.75) 80%);
-  border: 1px solid rgba(56, 189, 248, 0.4);
+  background: var(--panel);
+  border: 1px solid var(--line);
   box-shadow: 
     0 20px 50px -10px rgba(0, 0, 0, 0.8),
-    0 0 40px rgba(14, 165, 233, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(20px);
   min-width: 230px;
   animation: micFadeScale 0.4s cubic-bezier(0.16, 1, 0.3, 1);

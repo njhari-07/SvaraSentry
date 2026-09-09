@@ -7,7 +7,7 @@ export const Footer: React.FC = () => {
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
         {/* Brand */}
         <div className="flex items-center gap-2">
-          <span className="font-extrabold text-base tracking-tight text-white font-sans">SvaraSentry</span>
+          <span className="font-extrabold text-base tracking-tight text-white font-sans">ChhayaSwara</span>
           <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
           <span className="text-white/40 ml-2">AI VOICE DEEPFAKE DEFENSE // 16 KHZ MONO</span>
         </div>
@@ -32,7 +32,7 @@ export const Footer: React.FC = () => {
         <div className="flex items-center gap-4">
           <span className="text-cyan-400 font-semibold">SYSTEM OPERATIONAL // LATENCY &lt; 3.0S</span>
           <span className="text-white/20">|</span>
-          <span>© {new Date().getFullYear()} SvaraSentry.</span>
+          <span>© {new Date().getFullYear()} ChhayaSwara.</span>
         </div>
       </div>
     </footer>

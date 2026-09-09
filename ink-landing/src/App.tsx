@@ -64,7 +64,7 @@ export function App() {
             transition: "all 0.2s",
           }}
         >
-          SvaraSentry Overview
+          ChhayaSwara Overview
         </button>
         <button
           type="button"
@@ -93,7 +93,7 @@ export function App() {
       ) : (
         <iframe
           src="/ink.html"
-          title="SvaraSentry Overview"
+          title="ChhayaSwara Overview"
           style={{
             position: "fixed",
             top: 0,

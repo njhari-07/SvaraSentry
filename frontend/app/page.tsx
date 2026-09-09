@@ -109,7 +109,7 @@ export default function HomePage() {
         <iframe
           src="/ink.html"
           title=""
-          aria-label="SvaraSentry Overview"
+          aria-label="ChhayaSwara Overview"
           style={{
             position: "fixed",
             top: 0,

@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <meta name="description" content="SvaraSentry — Real-time AI voice-deepfake recognition and continuous acoustic defense platform." />
+  <meta name="description" content="ChhayaSwara — Real-time AI voice-deepfake recognition and continuous acoustic defense platform." />
   <meta name="theme-color" content="#020617" />
-  <title>SvaraSentry · Real-Time AI Voice Deepfake Defense</title>
+  <title>ChhayaSwara · Real-Time AI Voice Deepfake Defense</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
 
   <!-- Fonts: Space Grotesk, Instrument Serif, JetBrains Mono -->
@@ -40,7 +40,7 @@
   <!-- Top Sticky Navigation -->
   <nav>
     <a href="/" class="brand">
-      <span>SvaraSentry</span><span class="d">.</span>
+      <span>ChhayaSwara</span><span class="d">.</span>
       <span class="badge">DEFENSE</span>
     </a>
     <div class="navr">
@@ -88,11 +88,11 @@
         </div>
         <div class="showStage">
           <div class="window showWin reveal clipUp">
-            <div class="winbar"><span class="dotr" style="background:#ff5f57"></span><span class="dotr" style="background:#febc2e"></span><span class="dotr" style="background:#28c840"></span><span class="url">svarasentry.app / monitor</span></div>
+            <div class="winbar"><span class="dotr" style="background:#ff5f57"></span><span class="dotr" style="background:#febc2e"></span><span class="dotr" style="background:#28c840"></span><span class="url">chhayaswara.app / monitor</span></div>
             <div class="winbody">
               <div class="scan"></div>
               <div class="wgrid"></div>
-              <div class="wmark">SVARA<span class="d">.</span></div>
+              <div class="wmark">SWARA<span class="d">.</span></div>
               <div class="whud"><span class="wstat">3.0s window &middot; 16kHz PCM &middot; Wav2Vec2 Encoders</span><span class="chip"><span class="live"></span> 60 FPS TELEMETRY</span></div>
             </div>
           </div>
@@ -122,7 +122,7 @@
             <div class="ln"><span class="dim">across a phone call</span></div>
             <div class="ln">was <span class="s">authentic.</span></div>
             <div class="ln" style="margin-top:0.4em">Now AI <span class="g">speaks in their breath.</span></div>
-            <div class="ln" style="margin-top:0.2em">SvaraSentry <span class="g">guards the line.</span></div>
+            <div class="ln" style="margin-top:0.2em">ChhayaSwara <span class="g">guards the line.</span></div>
           </div>
         </div>
       </div>
@@ -210,11 +210,11 @@
         <div class="grid2">
           <div class="editor reveal clipUp">
             <div class="winbar"><span class="dotr" style="background:#ff5f57"></span><span class="dotr" style="background:#febc2e"></span><span class="dotr" style="background:#28c840"></span><span class="url" style="color:#7e88a8;background:rgba(255,255,255,0.06);">telephony_guard.js</span></div>
-            <pre><code><span class="c-com">// Connect real-time PCM audio stream to SvaraSentry</span>
-<span class="c-key">import</span> { <span class="c-tag">SvaraSentry</span> } <span class="c-key">from</span> <span class="c-str">"@svara/defense"</span>;
+            <pre><code><span class="c-com">// Connect real-time PCM audio stream to ChhayaSwara</span>
+<span class="c-key">import</span> { <span class="c-tag">ChhayaSwara</span> } <span class="c-key">from</span> <span class="c-str">"@chhayaswara/defense"</span>;
 
-<span class="c-key">const</span> sentry = <span class="c-key">new</span> <span class="c-tag">SvaraSentry</span>({
-  apiKey: process.env.<span class="c-fn">SVARA_KEY</span>,
+<span class="c-key">const</span> sentry = <span class="c-key">new</span> <span class="c-tag">ChhayaSwara</span>({
+  apiKey: process.env.<span class="c-fn">CHHAYASWARA_KEY</span>,
   killOnSpoof: <span class="c-tag">true</span>,
   threshold: <span class="c-fn">0.85</span>
 });
@@ -228,7 +228,7 @@ sentry.<span class="c-fn">onRiskAlert</span>(event =&gt; {
               <div class="demobar"><span class="dotr" style="background:#ff5f57"></span><span class="dotr" style="background:#febc2e"></span><span class="dotr" style="background:#28c840"></span></div>
               <div class="demo" id="embedDemo"></div>
             </div>
-            <div class="tagline">svarasentry.com &mdash; Real-time telephony defense stream</div>
+            <div class="tagline">chhayaswara.com &mdash; Real-time telephony defense stream</div>
           </div>
         </div>
         <div class="embed-cards">
@@ -274,15 +274,15 @@ sentry.<span class="c-fn">onRiskAlert</span>(event =&gt; {
   <footer data-idx="">
     <div class="wrap">
       <div class="top">
-        <div class="fmark">SVARA<span class="d">.</span></div>
+        <div class="fmark">SWARA<span class="d">.</span></div>
         <div class="cols">
           <div class="col"><h4>Platform</h4><a href="#hero">Overview</a><a href="#direct">Defense Engine</a><a href="#spec">Specs</a><a href="/app">Live Monitor</a></div>
           <div class="col"><h4>Telephony</h4><a href="/phone">Phone Relay</a><a href="#reveal">Pipeline</a><a href="#embed">SDK Embed</a></div>
-          <div class="col"><h4>Lineage</h4><a href="https://github.com/njhari-07/SvaraSentry" target="_blank">SvaraSentry Repo</a><a href="#">Wav2Vec2 Deepfake Defense</a><a href="#">Navier-Stokes WebGL</a></div>
+          <div class="col"><h4>Lineage</h4><a href="https://github.com/njhari-07/SvaraSentry" target="_blank">ChhayaSwara Repo</a><a href="#">Wav2Vec2 Deepfake Defense</a><a href="#">Navier-Stokes WebGL</a></div>
         </div>
       </div>
       <div class="base">
-        <span>&copy; 2026 SvaraSentry &mdash; Real-Time AI Voice Deepfake Defense.</span>
+        <span>&copy; 2026 ChhayaSwara &mdash; Real-Time AI Voice Deepfake Defense.</span>
         <span class="built"><span class="g"></span> Neural Audio Forensic Architecture</span>
       </div>
     </div>

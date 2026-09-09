@@ -49,7 +49,7 @@ export default function TensionScrub() {
           </div>
           <div className="overflow-hidden">
             <motion.div style={{ y: line5Y, opacity: line5Opacity }}>
-              SvaraSentry <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">guards the line.</span>
+              ChhayaSwara <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">guards the line.</span>
             </motion.div>
           </div>
         </div>

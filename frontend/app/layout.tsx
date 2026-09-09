@@ -3,7 +3,7 @@ import "./globals.css";
 import "./tailwind.css";
 
 export const metadata: Metadata = {
-  title: "SvaraSentry · Voice authenticity monitor",
+  title: "ChhayaSwara · Voice authenticity monitor",
   description: "Real-time voice-clone risk monitoring.",
   icons: { icon: "/favicon.svg" },
 };

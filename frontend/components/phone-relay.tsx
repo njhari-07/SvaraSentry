@@ -138,11 +138,11 @@ export function PhoneRelay() {
   return (
     <main className="phone-shell">
       <header className="phone-header">
-        <Link className="phone-brand" href="/" aria-label="SvaraSentry home">
+        <Link className="phone-brand" href="/" aria-label="ChhayaSwara home">
           <span className="brand-mark" aria-hidden="true">
             <AudioWaveform size={18} strokeWidth={2.2} />
           </span>
-          <strong>Svara<span>Sentry</span></strong>
+          <strong>Chhaya<span>Swara</span></strong>
         </Link>
         <small>PHONE RELAY</small>
       </header>

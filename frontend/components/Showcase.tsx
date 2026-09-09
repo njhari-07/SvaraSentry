@@ -26,7 +26,7 @@ export default function Showcase() {
             <div className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
             <div className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
             <span className="mx-auto font-mono text-xs text-neutral-400 bg-white/5 px-4 py-1 rounded-md">
-              svarasentry.app / live-telemetry
+              chhayaswara.app / live-telemetry
             </span>
           </div>
 
@@ -39,7 +39,7 @@ export default function Showcase() {
             
             {/* Giant Watermark */}
             <div className="font-bold tracking-tighter text-7xl sm:text-9xl text-white/[0.05] select-none">
-              SVARA<span className="text-cyan-500/30">.</span>
+              SWARA<span className="text-cyan-500/30">.</span>
             </div>
 
             {/* Bottom HUD bar */}
