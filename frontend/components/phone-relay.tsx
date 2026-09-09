@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { AudioWaveform } from "lucide-react";
 
 import { websocketUrl } from "@/lib/api";
 
@@ -139,30 +140,7 @@ export function PhoneRelay() {
       <header className="phone-header">
         <Link className="phone-brand" href="/" aria-label="SvaraSentry home">
           <span className="brand-mark" aria-hidden="true">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <linearGradient id="phoneShield" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stopColor="#38bdf8" />
-                  <stop offset="50%" stopColor="#60a5fa" />
-                  <stop offset="100%" stopColor="#2563eb" />
-                </linearGradient>
-                <linearGradient id="phoneWave" x1="12" y1="6" x2="12" y2="18" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stopColor="#ffffff" />
-                  <stop offset="100%" stopColor="#7dd3fc" />
-                </linearGradient>
-              </defs>
-              <path
-                d="M12 2.5L4.5 5.5V11.5C4.5 16.2 7.7 20.6 12 21.8C16.3 20.6 19.5 16.2 19.5 11.5V5.5L12 2.5Z"
-                stroke="url(#phoneShield)"
-                strokeWidth="1.8"
-                strokeLinejoin="round"
-                fill="rgba(56, 189, 248, 0.12)"
-              />
-              <path d="M8 10V14" stroke="url(#phoneWave)" strokeWidth="2" strokeLinecap="round" />
-              <path d="M10.7 7.5V16.5" stroke="url(#phoneWave)" strokeWidth="2" strokeLinecap="round" />
-              <path d="M13.3 6V18" stroke="#ffffff" strokeWidth="2.2" strokeLinecap="round" />
-              <path d="M16 8.5V15.5" stroke="url(#phoneWave)" strokeWidth="2" strokeLinecap="round" />
-            </svg>
+            <AudioWaveform size={18} strokeWidth={2.2} />
           </span>
           <strong>Svara<span>Sentry</span></strong>
         </Link>
