@@ -30,15 +30,15 @@ export const FluidBackground: React.FC<FluidBackgroundProps> = ({
   useEffect(() => {
     // 1. WebGL2 Support Check
     if (!isWebGL2Supported()) {
-      setSupported(false);
-      return;
+      const fallbackFrame = window.requestAnimationFrame(() => setSupported(false));
+      return () => window.cancelAnimationFrame(fallbackFrame);
     }
 
     // 2. Prefers-reduced-motion Check
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     if (mediaQuery.matches) {
-      setReducedMotion(true);
-      return;
+      const fallbackFrame = window.requestAnimationFrame(() => setReducedMotion(true));
+      return () => window.cancelAnimationFrame(fallbackFrame);
     }
 
     const canvas = canvasRef.current;
@@ -72,8 +72,8 @@ export const FluidBackground: React.FC<FluidBackgroundProps> = ({
       });
     } catch (err) {
       console.warn("WebGL2 Fluid Simulation failed to start, falling back to static poster:", err);
-      setSupported(false);
-      return;
+      const fallbackFrame = window.requestAnimationFrame(() => setSupported(false));
+      return () => window.cancelAnimationFrame(fallbackFrame);
     }
 
     // 4. ResizeObserver for responsive viewport adaptation

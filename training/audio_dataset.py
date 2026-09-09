@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import os
+from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -47,6 +48,7 @@ class AudioDataset(Dataset[dict[str, object]]):
         *,
         seed: int = 0,
         config_path: str | Path | None = None,
+        cache_megabytes: int = 0,
     ) -> None:
         if split not in {"train", "validation", "test"}:
             raise ValueError("split must be 'train', 'validation', or 'test'")
@@ -59,6 +61,9 @@ class AudioDataset(Dataset[dict[str, object]]):
         self.config = config if config is not None else AugmentationConfig()
         self.seed = seed
         self.epoch = 0
+        self.cache_limit = cache_megabytes * 1024 * 1024
+        self.cache_bytes = 0
+        self.cache: OrderedDict[Path, torch.Tensor] = OrderedDict()
         self.augmenter = AudioAugmenter(self.config, training=(split == "train"))
 
     def set_epoch(self, epoch: int) -> None:
@@ -70,9 +75,25 @@ class AudioDataset(Dataset[dict[str, object]]):
         return len(self.records)
 
     def __getitem__(self, index: int) -> dict[str, object]:
+        return self.get_draw(index)
+
+    def get_draw(self, index: int, draw_id: int | None = None) -> dict[str, object]:
         record = self.records[index]
-        waveform = _decode_source(record.path, self.config.sample_rate)
-        generator = self._generator(record.sample_id)
+        waveform = self.cache.get(record.path)
+        if waveform is None:
+            waveform = _decode_source(record.path, self.config.sample_rate)
+            size = waveform.numel() * waveform.element_size()
+            # Cache long recordings only: short corpus files are rarely revisited.
+            if self.config.window_samples * 4 < waveform.numel() and size <= self.cache_limit:
+                while self.cache_bytes + size > self.cache_limit and self.cache:
+                    _, old = self.cache.popitem(last=False)
+                    self.cache_bytes -= old.numel() * old.element_size()
+                self.cache[record.path] = waveform
+                self.cache_bytes += size
+        else:
+            self.cache.move_to_end(record.path)
+        sample_seed = record.sample_id if draw_id is None else f"{record.sample_id}:draw={draw_id}"
+        generator = self._generator(sample_seed)
         prepared = self.augmenter.augment(
             waveform,
             source_sample_rate=self.config.sample_rate,

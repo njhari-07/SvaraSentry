@@ -48,6 +48,7 @@ export interface Explanation {
 
 export interface AnalysisResult {
   type: "result";
+  stream_id: string;
   chunk_index: number;
   risk_score: number;
   smoothed_risk: number;
@@ -66,9 +67,37 @@ export interface AnalysisResult {
   signal?: { rms_dbfs: number; peak: number; state: string };
 }
 
+export interface FinalSessionSummary {
+  type: "session_summary";
+  session_id: string;
+  stream_id: string;
+  completed: boolean;
+  window_count: number;
+  average_risk: number;
+  maximum_risk: number;
+  high_risk_windows: number;
+  caution_windows: number;
+  high_risk_fraction: number;
+  alert_level: AlertLevel;
+  completed_at: number;
+}
+
 export interface DashboardMessage {
-  type: "snapshot" | "result" | "source" | "source_status" | "enrollment" | "reset" | "error";
+  type: "snapshot" | "result" | "session_summary" | "source" | "source_status" | "enrollment" | "reset" | "error";
   latest?: AnalysisResult;
+  final_summary?: FinalSessionSummary;
+  summary?: FinalSessionSummary;
+  window_count?: number;
+  average_risk?: number;
+  maximum_risk?: number;
+  high_risk_windows?: number;
+  caution_windows?: number;
+  high_risk_fraction?: number;
+  alert_level?: AlertLevel;
+  completed_at?: number;
+  session_id?: string;
+  stream_id?: string;
+  completed?: boolean;
   voice_enrolled?: boolean;
   connected?: boolean;
   source?: "dashboard" | "phone";

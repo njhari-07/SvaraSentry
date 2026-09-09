@@ -1,13 +1,20 @@
 const configuredApiBase = process.env.NEXT_PUBLIC_API_BASE?.replace(/\/$/, "");
 const configuredPublicOrigin = process.env.NEXT_PUBLIC_PUBLIC_ORIGIN?.replace(/\/$/, "");
 
+function apiBase(): string {
+  if (configuredApiBase) return configuredApiBase;
+  if (typeof window !== "undefined") {
+    return `${window.location.protocol}//${window.location.hostname}:8000`;
+  }
+  return "http://localhost:8000";
+}
+
 export function apiUrl(path: string): string {
-  return `${configuredApiBase ?? "http://localhost:8000"}${path}`;
+  return `${apiBase()}${path}`;
 }
 
 export function websocketUrl(path: string): string {
-  const base = configuredApiBase ?? "http://localhost:8000";
-  return `${base.replace(/^http/, "ws")}${path}`;
+  return `${apiBase().replace(/^http/, "ws")}${path}`;
 }
 
 export function publicUrl(path: string): string {

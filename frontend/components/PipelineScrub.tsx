@@ -1,6 +1,6 @@
 "use client";
 import { useRef } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion, useScroll, useTransform, type MotionValue } from "framer-motion";
 
 const STAGES = [
   {
@@ -45,6 +45,45 @@ const STAGES = [
   },
 ];
 
+type Stage = (typeof STAGES)[number];
+
+function StageCard({
+  stage,
+  index,
+  progress,
+}: {
+  stage: Stage;
+  index: number;
+  progress: MotionValue<number>;
+}) {
+  const scaleX = useTransform(
+    progress,
+    [index / STAGES.length, (index + 1) / STAGES.length],
+    [0, 1]
+  );
+
+  return (
+    <div className="w-[300px] sm:w-[380px] p-6 sm:p-8 rounded-2xl border border-white/15 bg-neutral-950/70 backdrop-blur-xl shadow-2xl flex flex-col justify-between">
+      <div>
+        <div className="font-mono text-xs uppercase tracking-widest text-neutral-400">{stage.num}</div>
+        <div className="text-2xl sm:text-3xl font-semibold tracking-tight text-white mt-3 mb-2">
+          <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+            {stage.title}
+          </span>
+        </div>
+        <p className="text-neutral-400 text-sm leading-relaxed">{stage.desc}</p>
+      </div>
+
+      <div className="mt-8 h-1 w-full bg-white/10 rounded-full overflow-hidden">
+        <motion.div
+          style={{ scaleX }}
+          className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 origin-left"
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function PipelineScrub() {
   const sectionRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
@@ -70,35 +109,8 @@ export default function PipelineScrub() {
 
         {/* Horizontal Moving Stage Track */}
         <motion.div style={{ x }} className="flex gap-6 sm:gap-8 px-6 sm:px-12 w-max will-change-transform">
-          {STAGES.map((s, idx) => (
-            <div
-              key={s.num}
-              className="w-[300px] sm:w-[380px] p-6 sm:p-8 rounded-2xl border border-white/15 bg-neutral-950/70 backdrop-blur-xl shadow-2xl flex flex-col justify-between"
-            >
-              <div>
-                <div className="font-mono text-xs uppercase tracking-widest text-neutral-400">{s.num}</div>
-                <div className="text-2xl sm:text-3xl font-semibold tracking-tight text-white mt-3 mb-2">
-                  <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
-                    {s.title}
-                  </span>
-                </div>
-                <p className="text-neutral-400 text-sm leading-relaxed">{s.desc}</p>
-              </div>
-
-              {/* Progress Bar under each stage */}
-              <div className="mt-8 h-1 w-full bg-white/10 rounded-full overflow-hidden">
-                <motion.div
-                  style={{
-                    scaleX: useTransform(
-                      scrollYProgress,
-                      [idx / STAGES.length, (idx + 1) / STAGES.length],
-                      [0, 1]
-                    ),
-                  }}
-                  className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 origin-left"
-                />
-              </div>
-            </div>
+          {STAGES.map((stage, index) => (
+            <StageCard key={stage.num} stage={stage} index={index} progress={scrollYProgress} />
           ))}
         </motion.div>
       </div>

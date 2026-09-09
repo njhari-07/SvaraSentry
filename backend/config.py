@@ -37,12 +37,18 @@ class Settings:
     max_sessions: int = 200
     max_frame_bytes: int = 64_000
     pairing_token_ttl_seconds: int = 120
+    pairing_reconnect_ttl_seconds: int = 60
     model_mode: str = "baseline"
     checkpoint_path: Path = Path("training/checkpoints/model.pt")
     explanation_occlusion: bool = False
     explanation_band_occlusion: bool = False
     explanation_integrated_gradients: bool = False
     explanation_top_regions: int = 3
+    langchain_enabled: bool = False
+    groq_model: str = "openai/gpt-oss-20b"
+    groq_api_key_file: Path | None = None
+    groq_timeout_seconds: float = 5.0
+    langchain_interval_chunks: int = 5
     frontend_origin: str = "http://localhost:3000"
     cors_origins: tuple[str, ...] = ("http://localhost:3000", "http://127.0.0.1:3000")
 
@@ -59,6 +65,9 @@ class Settings:
             max_sessions=int(os.getenv("SVARASENTRY_MAX_SESSIONS", "200")),
             max_frame_bytes=int(os.getenv("SVARASENTRY_MAX_FRAME_BYTES", "64000")),
             pairing_token_ttl_seconds=int(os.getenv("SVARASENTRY_PAIRING_TOKEN_TTL_SECONDS", "120")),
+            pairing_reconnect_ttl_seconds=int(
+                os.getenv("SVARASENTRY_PAIRING_RECONNECT_TTL_SECONDS", "60")
+            ),
             model_mode=os.getenv("SVARASENTRY_MODEL_MODE", "baseline").lower(),
             checkpoint_path=Path(
                 os.getenv("SVARASENTRY_CHECKPOINT", "training/checkpoints/model.pt")
@@ -67,6 +76,17 @@ class Settings:
             explanation_band_occlusion=_bool("SVARASENTRY_EXPLAIN_BAND_OCCLUSION"),
             explanation_integrated_gradients=_bool("SVARASENTRY_EXPLAIN_INTEGRATED_GRADIENTS"),
             explanation_top_regions=int(os.getenv("SVARASENTRY_EXPLAIN_TOP_REGIONS", "3")),
+            langchain_enabled=_bool("SVARASENTRY_LANGCHAIN_ENABLED"),
+            groq_model=os.getenv("SVARASENTRY_GROQ_MODEL", "openai/gpt-oss-20b"),
+            groq_api_key_file=(
+                Path(value)
+                if (value := os.getenv("SVARASENTRY_GROQ_API_KEY_FILE"))
+                else None
+            ),
+            groq_timeout_seconds=_float("SVARASENTRY_GROQ_TIMEOUT_SECONDS", 5.0),
+            langchain_interval_chunks=max(
+                1, int(os.getenv("SVARASENTRY_LANGCHAIN_INTERVAL_CHUNKS", "5"))
+            ),
             frontend_origin=os.getenv("SVARASENTRY_FRONTEND_ORIGIN", "http://localhost:3000").rstrip("/"),
             cors_origins=_origins(
                 "SVARASENTRY_CORS_ORIGINS",

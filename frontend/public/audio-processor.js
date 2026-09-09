@@ -1,33 +1,49 @@
+import { AudioResampler } from "./audio-resampler.mjs";
+
 class RelayProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
-    this.targetRate = options.processorOptions.targetRate || 16000;
-    this.sourceRate = sampleRate;
+    this.resampler = new AudioResampler(sampleRate, options.processorOptions.targetRate || 16000);
+    this.active = true;
+    this.pending = [];
+    this.port.onmessage = ({ data }) => {
+      if (data?.type === "flush" && this.active) {
+        this.active = false;
+        this.queue(this.resampler.flush());
+        this.send();
+        this.port.postMessage({ type: "flushed" });
+      }
+    };
   }
-
-  process(inputs) {
-    const input = inputs[0]?.[0];
-    if (!input) return true;
-    const output = new Float32Array(Math.round(input.length * this.targetRate / this.sourceRate));
-    const ratio = this.sourceRate / this.targetRate;
+  send() {
+    if (!this.pending.length) return;
+    const pcm = new Int16Array(this.pending.length);
     let sumSquares = 0;
-    for (let index = 0; index < output.length; index += 1) {
-      const position = index * ratio;
-      const left = Math.floor(position);
-      const mix = position - left;
-      const value = input[left] * (1 - mix) + (input[Math.min(left + 1, input.length - 1)] || 0) * mix;
-      output[index] = value;
+    for (let i = 0; i < pcm.length; i++) {
+      const value = Math.max(-1, Math.min(1, this.pending[i]));
+      pcm[i] = value < 0 ? value * 32768 : value * 32767;
       sumSquares += value * value;
     }
-    const pcm = new Int16Array(output.length);
-    for (let index = 0; index < output.length; index += 1) {
-      const value = Math.max(-1, Math.min(1, output[index]));
-      pcm[index] = value < 0 ? value * 32768 : value * 32767;
+    const dbfs = Math.max(-100, 20 * Math.log10(Math.sqrt(sumSquares / pcm.length) || 1e-5));
+    this.pending = [];
+    this.port.postMessage({ type: "audio", buffer: pcm.buffer, dbfs }, [pcm.buffer]);
+  }
+  queue(samples) {
+    for (const sample of samples) {
+      this.pending.push(sample);
+      if (this.pending.length === 4000) this.send();
     }
-    const dbfs = Math.max(-100, 20 * Math.log10(Math.sqrt(sumSquares / output.length) || 1e-5));
-    this.port.postMessage({ buffer: pcm.buffer, dbfs }, [pcm.buffer]);
+  }
+  process(inputs) {
+    if (!this.active) return false;
+    const channels = inputs[0];
+    if (!channels?.length || !channels[0]?.length) return true;
+    const mono = new Float32Array(channels[0].length);
+    for (const channel of channels) {
+      for (let i = 0; i < mono.length; i++) mono[i] += channel[i] / channels.length;
+    }
+    this.queue(this.resampler.process(mono));
     return true;
   }
 }
-
 registerProcessor("relay-processor", RelayProcessor);

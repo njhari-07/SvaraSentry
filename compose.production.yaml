@@ -1,19 +1,34 @@
 services:
   app-prod:
+    healthcheck:
+      interval: 10s
+      timeout: 5s
+      start_period: 120s
+      retries: 6
     build:
       context: .
-      target: runtime
+      target: ml-runtime
     ports:
       - "8000:8000"
     environment:
-      SVARASENTRY_MODEL_MODE: ${SVARASENTRY_MODEL_MODE:-baseline}
+      SVARASENTRY_MODEL_MODE: checkpoint
       SVARASENTRY_CHECKPOINT: ${SVARASENTRY_CHECKPOINT:-/app/training/checkpoints/model.pt}
       SVARASENTRY_SESSION_TTL_SECONDS: ${SVARASENTRY_SESSION_TTL_SECONDS:-3600}
       SVARASENTRY_MAX_SESSIONS: ${SVARASENTRY_MAX_SESSIONS:-200}
       SVARASENTRY_CAUTION_THRESHOLD: ${SVARASENTRY_CAUTION_THRESHOLD:-0.55}
-      SVARASENTRY_HIGH_THRESHOLD: ${SVARASENTRY_HIGH_THRESHOLD:-0.75}
+      SVARASENTRY_HIGH_THRESHOLD: ${SVARASENTRY_HIGH_THRESHOLD:-0.8793585300445557}
+      SVARASENTRY_LANGCHAIN_ENABLED: ${SVARASENTRY_LANGCHAIN_ENABLED:-1}
+      SVARASENTRY_GROQ_MODEL: ${SVARASENTRY_GROQ_MODEL:-openai/gpt-oss-20b}
+      SVARASENTRY_GROQ_API_KEY_FILE: /run/secrets/groq_api_key
+      SVARASENTRY_GROQ_TIMEOUT_SECONDS: ${SVARASENTRY_GROQ_TIMEOUT_SECONDS:-5}
+      SVARASENTRY_LANGCHAIN_INTERVAL_CHUNKS: ${SVARASENTRY_LANGCHAIN_INTERVAL_CHUNKS:-5}
       SVARASENTRY_FRONTEND_ORIGIN: ${SVARASENTRY_FRONTEND_ORIGIN:-http://localhost:3000}
       SVARASENTRY_CORS_ORIGINS: ${SVARASENTRY_CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+    volumes:
+      - ./training/checkpoints:/app/training/checkpoints:ro
+      - ./training/pretrained:/app/training/pretrained:ro
+    secrets:
+      - groq_api_key
     read_only: true
     tmpfs:
       - /tmp:size=128m,mode=1777
@@ -24,6 +39,15 @@ services:
     restart: unless-stopped
 
   frontend-prod:
+    environment:
+      HOSTNAME: 0.0.0.0
+      NEXT_TELEMETRY_DISABLED: "1"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:3000/app"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 6
     build:
       context: .
       target: frontend-runtime
@@ -34,7 +58,7 @@ services:
       - "3000:3000"
     depends_on:
       app-prod:
-        condition: service_started
+        condition: service_healthy
     read_only: true
     tmpfs:
       - /tmp:size=64m,mode=1777
@@ -43,3 +67,7 @@ services:
       - no-new-privileges:true
     init: true
     restart: unless-stopped
+
+secrets:
+  groq_api_key:
+    file: ./.secrets/groq_api_key

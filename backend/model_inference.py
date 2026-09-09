@@ -26,14 +26,46 @@ class CheckpointInferenceEngine:
         from training.model import VoiceCloneDetector
 
         payload = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+        if payload.get("format_version") != 2:
+            raise ValueError(
+                f"Unsupported checkpoint format version: {payload.get('format_version')!r}"
+            )
+        architecture_keys = ("model_name", "hidden_size", "graph_layers", "graph_heads", "dropout")
+        missing = [key for key in architecture_keys if key not in payload]
+        if missing:
+            raise ValueError(f"Checkpoint architecture is missing: {', '.join(missing)}")
+        state_dict = payload.get("state_dict")
+        if not isinstance(state_dict, dict):
+            raise TypeError("Serving checkpoint does not contain a state_dict")
+
+        model_source = Path(str(payload["model_name"]))
+        if not model_source.is_absolute():
+            repository_source = Path(__file__).resolve().parents[1] / model_source
+            if repository_source.exists():
+                model_source = repository_source
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = VoiceCloneDetector(
-            model_name=payload.get("model_name", "facebook/wav2vec2-base"),
-            hidden_size=payload.get("hidden_size", 256),
+            model_name=str(model_source),
+            hidden_size=int(payload["hidden_size"]),
+            graph_layers=int(payload["graph_layers"]),
+            graph_heads=int(payload["graph_heads"]),
+            dropout=float(payload["dropout"]),
+            waveform_normalization=payload.get("waveform_normalization", "none"),
         )
-        self.model.load_state_dict(payload["state_dict"])
+        self.model.load_state_dict(state_dict)
         self.model.to(self.device).eval()
         self.torch = torch
+        metrics = payload.get("metrics", {})
+        selection = payload.get("selection", {})
+        self.checkpoint_metadata = {
+            "format_version": payload["format_version"],
+            "phase": selection.get("phase"),
+            "epoch": selection.get("epoch"),
+            "selection_metric": selection.get("metric"),
+            "selection_value": selection.get("value"),
+            "eer": metrics.get("eer"),
+            "eer_threshold": metrics.get("eer_threshold"),
+        }
         self.attribution = AttributionOptions(
             top_regions=max(1, attribution.top_regions),
             time_occlusion=attribution.time_occlusion,

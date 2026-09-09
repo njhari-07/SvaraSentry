@@ -48,17 +48,29 @@ services:
     volumes:
       - ./data:/app/data
       - ./training/checkpoints:/app/training/checkpoints:ro
+      - ./training/pretrained:/app/training/pretrained:ro
     environment:
       SVARASENTRY_MODEL_MODE: checkpoint
       SVARASENTRY_CHECKPOINT: ${SVARASENTRY_CHECKPOINT:-/app/training/checkpoints/model.pt}
       SVARASENTRY_SESSION_TTL_SECONDS: ${SVARASENTRY_SESSION_TTL_SECONDS:-3600}
       SVARASENTRY_MAX_SESSIONS: ${SVARASENTRY_MAX_SESSIONS:-200}
       SVARASENTRY_CAUTION_THRESHOLD: ${SVARASENTRY_CAUTION_THRESHOLD:-0.55}
-      SVARASENTRY_HIGH_THRESHOLD: ${SVARASENTRY_HIGH_THRESHOLD:-0.75}
+      SVARASENTRY_HIGH_THRESHOLD: ${SVARASENTRY_HIGH_THRESHOLD:-0.8793585300445557}
+      SVARASENTRY_LANGCHAIN_ENABLED: ${SVARASENTRY_LANGCHAIN_ENABLED:-1}
+      SVARASENTRY_GROQ_MODEL: ${SVARASENTRY_GROQ_MODEL:-openai/gpt-oss-20b}
+      SVARASENTRY_GROQ_API_KEY_FILE: /run/secrets/groq_api_key
+      SVARASENTRY_GROQ_TIMEOUT_SECONDS: ${SVARASENTRY_GROQ_TIMEOUT_SECONDS:-5}
+      SVARASENTRY_LANGCHAIN_INTERVAL_CHUNKS: ${SVARASENTRY_LANGCHAIN_INTERVAL_CHUNKS:-5}
       SVARASENTRY_FRONTEND_ORIGIN: ${SVARASENTRY_FRONTEND_ORIGIN:-http://localhost:3000}
       SVARASENTRY_CORS_ORIGINS: ${SVARASENTRY_CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+    secrets:
+      - groq_api_key
     init: true
     restart: unless-stopped
 
 volumes:
   frontend_node_modules:
+
+secrets:
+  groq_api_key:
+    file: ./.secrets/groq_api_key

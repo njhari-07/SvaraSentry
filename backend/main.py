@@ -8,6 +8,7 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Annotated
+from uuid import uuid4
 
 import numpy as np
 from fastapi import (
@@ -26,6 +27,7 @@ from backend.audio_io import decode_audio
 from backend.config import Settings
 from backend.explainer import build_explanation
 from backend.inference import AttributionOptions, InferenceEngine, create_inference_engine
+from backend.langchain_agent import create_groq_runnable, rewrite_with_langchain
 from backend.pairing import pairing_manager
 from backend.risk_engine import RiskEngine
 from backend.spectrogram import SpectrogramConfig, SpectrogramRenderer, cosine_similarity
@@ -43,6 +45,12 @@ inference: InferenceEngine = create_inference_engine(
     ),
 )
 spectrogram = SpectrogramRenderer(config=SpectrogramConfig(window_seconds=settings.window_seconds))
+explanation_runnable = create_groq_runnable(
+    enabled=settings.langchain_enabled,
+    model=settings.groq_model,
+    api_key_file=settings.groq_api_key_file,
+    timeout_seconds=settings.groq_timeout_seconds,
+)
 
 
 @dataclass(slots=True)
@@ -56,6 +64,13 @@ class SessionState:
     audio_connected: bool = False
     enrollment: np.ndarray | None = None
     latest: dict[str, object] | None = None
+    risk_sum: float = 0.0
+    maximum_risk: float = 0.0
+    high_risk_windows: int = 0
+    caution_windows: int = 0
+    final_summary: dict[str, object] | None = None
+    stream_id: str = field(default_factory=lambda: uuid4().hex)
+    audio_socket: WebSocket | None = field(default=None, repr=False)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
     def reset_stream(self) -> None:
@@ -63,17 +78,64 @@ class SessionState:
         self.risk_engine.reset()
         self.chunk_count = 0
         self.latest = None
+        self.risk_sum = 0.0
+        self.maximum_risk = 0.0
+        self.high_risk_windows = 0
+        self.caution_windows = 0
+        self.final_summary = None
+        self.stream_id = uuid4().hex
         self.updated_at = time.time()
+
+    def record_risk(self, score: float) -> None:
+        """Accumulate fused per-window risk for the final whole-stream result."""
+        self.risk_sum += score
+        self.maximum_risk = max(self.maximum_risk, score)
+        if score >= settings.high_threshold:
+            self.high_risk_windows += 1
+        elif score >= settings.caution_threshold:
+            self.caution_windows += 1
+
+    def finalize_stream(self, *, completed: bool = True) -> dict[str, object] | None:
+        """Build an arithmetic all-window summary when an audio source stops."""
+        if self.chunk_count == 0:
+            self.final_summary = None
+            return None
+
+        average_risk = self.risk_sum / self.chunk_count
+        if average_risk >= settings.high_threshold:
+            alert_level = "high"
+        elif average_risk >= settings.caution_threshold:
+            alert_level = "caution"
+        else:
+            alert_level = "none"
+
+        self.final_summary = {
+            "type": "session_summary",
+            "session_id": self.session_id,
+            "stream_id": self.stream_id,
+            "completed": completed,
+            "window_count": self.chunk_count,
+            "average_risk": round(average_risk, 4),
+            "maximum_risk": round(self.maximum_risk, 4),
+            "high_risk_windows": self.high_risk_windows,
+            "caution_windows": self.caution_windows,
+            "high_risk_fraction": round(self.high_risk_windows / self.chunk_count, 4),
+            "alert_level": alert_level,
+            "completed_at": time.time(),
+        }
+        return self.final_summary
 
     def summary(self) -> dict[str, object]:
         return {
             "session_id": self.session_id,
+            "stream_id": self.stream_id,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "chunk_count": self.chunk_count,
             "audio_connected": self.audio_connected,
             "voice_enrolled": self.enrollment is not None,
             "latest": self.latest,
+            "final_summary": self.final_summary,
         }
 
 
@@ -171,7 +233,7 @@ async def app_dashboard() -> RedirectResponse:
 
 @app.get("/health")
 async def health() -> dict[str, object]:
-    return {
+    result: dict[str, object] = {
         "status": "ok",
         "model": inference.model_kind,
         "mode": settings.model_mode,
@@ -181,7 +243,18 @@ async def health() -> dict[str, object]:
             "band_occlusion": settings.explanation_band_occlusion,
             "integrated_gradients": settings.explanation_integrated_gradients,
         },
+        "explanation_agent": {
+            "enabled": explanation_runnable is not None,
+            "provider": "groq" if explanation_runnable is not None else None,
+            "model": settings.groq_model if explanation_runnable is not None else None,
+            "fallback": "deterministic",
+            "interval_chunks": settings.langchain_interval_chunks,
+        },
     }
+    checkpoint_metadata = getattr(inference, "checkpoint_metadata", None)
+    if checkpoint_metadata is not None:
+        result["checkpoint"] = checkpoint_metadata
+    return result
 
 
 @app.get("/api/config")
@@ -215,7 +288,10 @@ async def session_detail(session_id: str) -> dict[str, object]:
 
 @app.post("/api/sessions/{session_id}/reset")
 async def reset_session(session_id: str) -> dict[str, str]:
-    get_session(session_id).reset_stream()
+    session = get_session(session_id)
+    if session.audio_connected:
+        raise HTTPException(409, "Stop audio and wait for the final result before resetting")
+    session.reset_stream()
     await broadcast(session_id, {"type": "reset", "session_id": session_id})
     # Also invalidate any pending pairing tokens when session resets
     pairing_manager.invalidate_session(session_id)
@@ -291,6 +367,9 @@ async def dashboard_socket(websocket: WebSocket, session_id: str) -> None:
             message = await websocket.receive_text()
             if message == "ping":
                 await websocket.send_json({"type": "pong", "timestamp": time.time()})
+            elif message == "stop_audio" and session.audio_socket is not None:
+                # Ask the phone to stop capture and enqueue its end marker after PCM.
+                await session.audio_socket.send_json({"type": "stop_requested"})
     except WebSocketDisconnect:
         dashboard_clients[session_id].discard(websocket)
 
@@ -308,6 +387,7 @@ async def process_chunk(session: SessionState, chunk: AudioChunk) -> dict[str, o
     )
     risk = session.risk_engine.update(prediction.fake_probability, identity_match)
     session.chunk_count += 1
+    session.record_risk(risk.raw_score)
     session.updated_at = time.time()
     signal = {
         "rms_dbfs": prediction.rms_dbfs,
@@ -330,9 +410,18 @@ async def process_chunk(session: SessionState, chunk: AudioChunk) -> dict[str, o
         caution_threshold=settings.caution_threshold,
         high_threshold=settings.high_threshold,
     )
+    if explanation_runnable is not None and (
+        (session.chunk_count - 1) % settings.langchain_interval_chunks == 0
+    ):
+        explanation = await asyncio.to_thread(
+            rewrite_with_langchain,
+            explanation_runnable,
+            explanation,
+        )
     payload: dict[str, object] = {
         "type": "result",
         "session_id": session.session_id,
+        "stream_id": session.stream_id,
         "chunk_index": session.chunk_count,
         "timestamp": round(chunk.timestamp, 3),
         "risk_score": round(risk.raw_score, 4),
@@ -364,6 +453,27 @@ async def process_chunk(session: SessionState, chunk: AudioChunk) -> dict[str, o
     return payload
 
 
+async def finish_audio_stream(session: SessionState, websocket: WebSocket, completed: bool) -> None:
+    final_summary = session.finalize_stream(completed=completed)
+    if final_summary is not None:
+        await broadcast(session.session_id, final_summary)
+    session.audio_connected = False
+    session.audio_socket = None
+    session.updated_at = time.time()
+    await broadcast(session.session_id, {
+        "type": "source", "connected": False, "stream_id": session.stream_id,
+        "completed": completed, "window_count": session.chunk_count,
+    })
+    if completed:
+        # The ordered end marker is read only after every preceding PCM frame.
+        # Acknowledge via the audio socket as well as the dashboard subscription.
+        try:
+            await websocket.send_json({"type": "audio_stopped", "summary": final_summary})
+            await websocket.close(code=1000, reason="Analysis complete")
+        except (RuntimeError, WebSocketDisconnect):
+            pass
+
+
 @app.websocket("/ws/audio/{session_id}")
 async def audio_socket(websocket: WebSocket, session_id: str) -> None:
     try:
@@ -380,7 +490,9 @@ async def audio_socket(websocket: WebSocket, session_id: str) -> None:
         return
     session.audio_connected = True
     session.reset_stream()
-    await broadcast(session_id, {"type": "source", "connected": True})
+    session.audio_socket = websocket
+    completed = False
+    await broadcast(session_id, {"type": "source", "connected": True, "stream_id": session.stream_id})
     await broadcast(
         session_id,
         {
@@ -397,6 +509,14 @@ async def audio_socket(websocket: WebSocket, session_id: str) -> None:
             message = await websocket.receive()
             if message["type"] == "websocket.disconnect":
                 break
+            if message.get("text"):
+                try:
+                    control = json.loads(message["text"])
+                except (TypeError, json.JSONDecodeError):
+                    continue
+                if isinstance(control, dict) and control.get("type") == "audio_control" and control.get("action") == "stop":
+                    completed = True
+                    break
             if frame := message.get("bytes"):
                 try:
                     if len(frame) > settings.max_frame_bytes:
@@ -405,16 +525,14 @@ async def audio_socket(websocket: WebSocket, session_id: str) -> None:
                         chunks = session.chunker.push(frame)
                         for chunk in chunks:
                             payload = await process_chunk(session, chunk)
-                            await websocket.send_json(payload)
                             await broadcast(session_id, payload)
+                            await websocket.send_json(payload)
                 except ValueError as exc:
                     await websocket.send_json({"type": "error", "message": str(exc)})
     except WebSocketDisconnect:
         pass
     finally:
-        session.audio_connected = False
-        session.updated_at = time.time()
-        await broadcast(session_id, {"type": "source", "connected": False})
+        await finish_audio_stream(session, websocket, completed)
         await broadcast(
             session_id,
             {
@@ -445,8 +563,10 @@ async def paired_audio_socket(websocket: WebSocket, token: str) -> None:
         return
     session.audio_connected = True
     session.reset_stream()
+    session.audio_socket = websocket
+    completed = False
     connected_at = time.time()
-    await broadcast(session_id, {"type": "source", "connected": True})
+    await broadcast(session_id, {"type": "source", "connected": True, "stream_id": session.stream_id})
     await broadcast(
         session_id,
         {
@@ -473,6 +593,14 @@ async def paired_audio_socket(websocket: WebSocket, token: str) -> None:
                     data = json.loads(message["text"])
                 except (json.JSONDecodeError, TypeError):
                     continue
+                if (
+                    isinstance(data, dict)
+                    and data.get("type") in {"relay_control", "audio_control"}
+                    and data.get("action") == "stop"
+                ):
+                    pairing_manager.revoke(token)
+                    completed = True
+                    break
                 if isinstance(data, dict) and data.get("type") == "status":
                     dropped_frames = int(data.get("dropped_frames", dropped_frames))
                     await broadcast(
@@ -497,16 +625,14 @@ async def paired_audio_socket(websocket: WebSocket, token: str) -> None:
                         chunks = session.chunker.push(frame)
                         for chunk in chunks:
                             payload = await process_chunk(session, chunk)
-                            await websocket.send_json(payload)
                             await broadcast(session_id, payload)
+                            await websocket.send_json(payload)
                 except ValueError as exc:
                     await websocket.send_json({"type": "error", "message": str(exc)})
     except WebSocketDisconnect:
         pass
     finally:
-        session.audio_connected = False
-        session.updated_at = time.time()
-        await broadcast(session_id, {"type": "source", "connected": False})
+        await finish_audio_stream(session, websocket, completed)
         await broadcast(
             session_id,
             {

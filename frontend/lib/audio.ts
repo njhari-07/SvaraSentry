@@ -1,14 +1,25 @@
+import { AudioResampler } from "../public/audio-resampler.mjs";
+
 export function resample(samples: Float32Array, sourceRate: number, targetRate: number): Float32Array {
-  if (sourceRate === targetRate) return new Float32Array(samples);
-  const output = new Float32Array(Math.round(samples.length * targetRate / sourceRate));
-  const ratio = sourceRate / targetRate;
-  for (let index = 0; index < output.length; index += 1) {
-    const position = index * ratio;
-    const left = Math.floor(position);
-    const mix = position - left;
-    output[index] = samples[left] * (1 - mix) + (samples[Math.min(left + 1, samples.length - 1)] || 0) * mix;
-  }
+  const resampler = new AudioResampler(sourceRate, targetRate);
+  const main = resampler.process(samples);
+  const tail = resampler.flush();
+  const output = new Float32Array(main.length + tail.length);
+  output.set(main);
+  output.set(tail, main.length);
   return output;
+}
+
+export function downmix(buffer: AudioBuffer): Float32Array {
+  if (buffer.numberOfChannels === 1) return new Float32Array(buffer.getChannelData(0));
+  const mono = new Float32Array(buffer.length);
+  for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
+    const samples = buffer.getChannelData(channel);
+    for (let index = 0; index < mono.length; index += 1) {
+      mono[index] += samples[index] / buffer.numberOfChannels;
+    }
+  }
+  return mono;
 }
 
 export function floatToPcm16(samples: Float32Array): ArrayBuffer {

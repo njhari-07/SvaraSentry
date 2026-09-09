@@ -166,6 +166,14 @@ def test_missing_explicit_assets_raise_clear_error(tmp_path) -> None:
         AudioAugmenter(config)
 
 
+def test_empty_explicit_asset_directory_raises_without_decoding(tmp_path) -> None:
+    noise_dir = tmp_path / "noise"
+    noise_dir.mkdir()
+    config = replace(AugmentationConfig(), noise=NoiseConfig(asset_dir=noise_dir))
+    with pytest.raises(ValueError, match="no supported noise assets"):
+        AudioAugmenter(config)
+
+
 def test_evaluation_does_not_index_unused_augmentation_assets(tmp_path) -> None:
     config = replace(AugmentationConfig(), noise=NoiseConfig(asset_dir=tmp_path / "missing"))
     evaluation = AudioAugmenter(config, training=False)

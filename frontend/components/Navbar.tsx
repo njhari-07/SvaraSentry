@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ShieldCheck, Radio } from "lucide-react";
+import Link from "next/link";
 
 interface NavbarProps {
   onLaunchMonitor?: () => void;
@@ -31,7 +32,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onLaunchMonitor }) => {
     >
       <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
         {/* Brand Logo */}
-        <a href="/" className="flex items-center gap-3 group">
+        <Link href="/" className="flex items-center gap-3 group">
           <div className="flex items-center gap-1.5">
             <span className="font-extrabold text-2xl tracking-tighter text-white group-hover:text-cyan-300 transition-colors">
               SvaraSentry
@@ -41,7 +42,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onLaunchMonitor }) => {
           <span className="hidden sm:inline-block font-mono text-[10px] tracking-widest text-white/40 uppercase border border-white/10 px-2 py-0.5 rounded">
             AI ACOUSTIC DEFENSE
           </span>
-        </a>
+        </Link>
 
         {/* Center Nav Links */}
         <nav className="hidden md:flex items-center gap-8 text-xs font-mono tracking-wider uppercase text-white/70">
@@ -54,20 +55,20 @@ export const Navbar: React.FC<NavbarProps> = ({ onLaunchMonitor }) => {
           <a href="#integration" className="hover:text-cyan-300 transition-colors">
             WebSocket API
           </a>
-          <a href="/phone" className="hover:text-cyan-300 transition-colors flex items-center gap-1.5">
+          <Link href="/phone" className="hover:text-cyan-300 transition-colors flex items-center gap-1.5">
             <Radio className="w-3.5 h-3.5 text-pink-400" />
             <span>Phone Relay</span>
-          </a>
+          </Link>
         </nav>
 
         {/* Right Action CTA */}
         <div className="flex items-center gap-4">
-          <a
+          <Link
             href="/phone"
             className="hidden sm:inline-flex items-center font-mono text-xs uppercase tracking-wider text-white/70 hover:text-white px-3 py-1.5 transition-colors"
           >
             Relay [PSTN]
-          </a>
+          </Link>
           <button
             onClick={onLaunchMonitor}
             className="relative group inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-mono font-bold tracking-wider uppercase bg-gradient-to-r from-blue-600 via-sky-600 to-cyan-500 text-white shadow-[0_0_20px_rgba(37,99,235,0.35)] hover:shadow-[0_0_25px_rgba(6,182,212,0.5)] transition-all duration-300 hover:scale-[1.02] cursor-pointer"

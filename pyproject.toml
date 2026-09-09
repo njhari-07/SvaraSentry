@@ -19,14 +19,15 @@ dependencies = [
 
 [project.optional-dependencies]
 ml = [
-  "torch>=2.10,<3",
-  "torchaudio>=2.10,<3",
+  "torch==2.11.0",
+  "torchaudio==2.11.0",
   "transformers>=4.49,<5",
   "scikit-learn>=1.6,<2",
   "imageio-ffmpeg>=0.6,<1",
 ]
 explain = [
   "langchain-core>=0.3,<2",
+  "langchain-groq>=0.3,<2",
 ]
 dev = [
   "httpx2>=2,<3",
@@ -39,9 +40,14 @@ include = ["backend*", "data_pipeline*", "training*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-q --basetemp=.pytest_tmp"
 pythonpath = ["."]
 
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+
+[tool.ruff.lint]
+# Docker Desktop exposes Windows bind-mounted Python files as executable.
+# EXE002 therefore reports false positives inside the development container.
+ignore = ["EXE002"]

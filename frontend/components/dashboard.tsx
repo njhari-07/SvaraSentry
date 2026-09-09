@@ -7,9 +7,10 @@ import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
 import { Mic, Square } from "lucide-react";
 
-import { delay, floatToPcm16, resample } from "@/lib/audio";
+import { delay, downmix, floatToPcm16, resample } from "@/lib/audio";
+import { finishAudio, flushAudioProcessor } from "@/lib/finish-audio";
 import { apiUrl, publicUrl, requestJson, websocketUrl } from "@/lib/api";
-import type { AlertLevel, AnalysisResult, DashboardMessage, Explanation, RuntimeConfig } from "@/lib/types";
+import type { AlertLevel, AnalysisResult, DashboardMessage, Explanation, FinalSessionSummary, RuntimeConfig } from "@/lib/types";
 import { WelcomeModal } from "@/components/WelcomeModal";
 
 type EventItem = { level: AlertLevel; title: string; copy: string; time: string };
@@ -70,6 +71,7 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
   const [connection, setConnection] = useState<"connecting" | "online" | "offline">("connecting");
   const [sourceStatus, setSourceStatus] = useState("Audio stays in this session and is not saved by the server.");
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [finalSummary, setFinalSummary] = useState<FinalSessionSummary | null>(null);
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [voiceEnrolled, setVoiceEnrolled] = useState(false);
@@ -77,6 +79,9 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
   const [enrollStatus, setEnrollStatus] = useState("");
   const [pairingUrl, setPairingUrl] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isFinalizing, setIsFinalizing] = useState(false);
+  const streamId = useRef<string | null>(null);
+  const stopping = useRef<Promise<void> | null>(null);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [modalStep, setModalStep] = useState(1);
 
@@ -84,7 +89,7 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
   const audioSocket = useRef<WebSocket | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioContext = useRef<AudioContext | null>(null);
-  const processor = useRef<ScriptProcessorNode | null>(null);
+  const processor = useRef<AudioWorkletNode | null>(null);
   const lastLevel = useRef<AlertLevel | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeSourceRef = useRef<"microphone" | "file" | "phone" | null>(null);
@@ -97,17 +102,15 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
   function setActiveSource(source: "microphone" | "file" | "phone" | null) {
     activeSourceRef.current = source;
     setActiveSourceState(source);
+    setRecordingSeconds(0);
   }
 
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | null = null;
     if (isStreaming && activeSource === "microphone") {
-      setRecordingSeconds(0);
       timer = setInterval(() => {
         setRecordingSeconds((prev) => prev + 1);
       }, 1000);
-    } else {
-      setRecordingSeconds(0);
     }
     return () => {
       if (timer) clearInterval(timer);
@@ -124,18 +127,22 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const level: AlertLevel = result?.alert_level ?? "none";
-  const decision = result ? decisions[level] : ["Ready to monitor", "Choose a microphone or audio file to begin a session.", "No action needed", "Begin monitoring when a call starts."];
-  const riskPercent = result ? Math.round(Math.max(0, Math.min(1, result.smoothed_risk)) * 100) : null;
+  const level: AlertLevel = finalSummary?.alert_level ?? result?.alert_level ?? "none";
+  const hasScore = Boolean(finalSummary || result);
+  const decision = hasScore ? decisions[level] : ["Ready to monitor", "Choose a microphone or audio file to begin a session.", "No action needed", "Begin monitoring when a call starts."];
+  const displayedRisk = finalSummary?.average_risk ?? result?.smoothed_risk ?? null;
+  const riskPercent = displayedRisk == null ? null : Math.round(Math.max(0, Math.min(1, displayedRisk)) * 100);
 
   function resetDisplay() {
     setResult(null);
+    setFinalSummary(null);
     setTrend([]);
     setEvents([]);
     lastLevel.current = null;
   }
 
   function recordResult(next: AnalysisResult) {
+    if (streamId.current && next.stream_id !== streamId.current) return;
     setResult(next);
     setVoiceEnrolled(next.voice_enrolled);
     setTrend((current) => [...current.slice(-119), { raw: next.risk_score, risk: next.smoothed_risk }]);
@@ -161,15 +168,30 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
       socket.onmessage = ({ data }) => {
         const message = JSON.parse(data) as DashboardMessage;
         if (message.type === "result") recordResult(message as AnalysisResult);
+        if (message.type === "session_summary" && message.stream_id === streamId.current) {
+          setFinalSummary(message as FinalSessionSummary);
+          setIsFinalizing(false);
+        }
+        if (message.type === "source" && message.connected) {
+          streamId.current = message.stream_id ?? null;
+          resetDisplay();
+        }
         if (message.type === "snapshot") {
+          streamId.current = message.stream_id ?? null;
           setVoiceEnrolled(Boolean(message.voice_enrolled));
           if (message.latest) recordResult(message.latest);
+          setFinalSummary(message.final_summary ?? null);
+        }
+        if (message.type === "source" && message.connected === false && message.stream_id === streamId.current) {
+          setIsFinalizing(false);
+          setSourceStatus(message.completed
+            ? (message.window_count ? "Analysis complete · final average ready." : "No complete three-second windows were recorded.")
+            : "Audio disconnected · summary covers completed windows only.");
         }
         if (message.type === "source" && message.connected === false && activeSourceRef.current === "phone") {
           activeSourceRef.current = null;
           setActiveSource(null);
           setIsStreaming(false);
-          setSourceStatus("Phone relay disconnected.");
         }
         if (message.type === "source_status" && message.source === "phone" && message.state === "streaming") {
           const network = message.network_state === "degraded" ? " · degraded network" : "";
@@ -200,6 +222,16 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
   }, [sessionId]);
 
   async function stopAudio(updateStatus = true) {
+    if (stopping.current) return stopping.current;
+    if (activeSourceRef.current === "phone") {
+      setIsFinalizing(true);
+      setSourceStatus("Stopping phone audio and finishing analysis…");
+      monitorSocket.current?.send("stop_audio");
+      return;
+    }
+    const activeSocket = audioSocket.current;
+    const activeProcessor = processor.current;
+    const activeContext = audioContext.current;
     if (animFrameRef.current) {
       cancelAnimationFrame(animFrameRef.current);
       animFrameRef.current = null;
@@ -208,15 +240,38 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
     activeSourceRef.current = null;
     setActiveSource(null);
     setIsStreaming(false);
-    processor.current?.disconnect();
     streamRef.current?.getTracks().forEach((track) => track.stop());
-    if (audioContext.current && audioContext.current.state !== "closed") await audioContext.current.close();
-    audioSocket.current?.close();
     processor.current = null;
     streamRef.current = null;
     audioContext.current = null;
     audioSocket.current = null;
-    if (updateStatus) setSourceStatus("Audio stream stopped.");
+    if (!activeSocket) {
+      activeProcessor?.disconnect();
+      if (activeContext && activeContext.state !== "closed") await activeContext.close();
+      return;
+    }
+    setIsFinalizing(true);
+    if (updateStatus) setSourceStatus("Finishing all queued audio windows…");
+    const pending = (async () => {
+      try {
+        // Flush the worklet's final partial PCM frame before the ordered end marker.
+        if (activeProcessor) await flushAudioProcessor(activeProcessor);
+        const summary = await finishAudio(activeSocket);
+        if (summary && summary.stream_id === streamId.current) setFinalSummary(summary);
+        setSourceStatus(summary ? "Analysis complete · final average ready." : "No complete three-second windows were recorded.");
+      } catch (error) {
+        setSourceStatus(error instanceof Error ? error.message : "Could not confirm the final result.");
+      } finally {
+        activeProcessor?.disconnect();
+        if (activeProcessor) activeProcessor.port.onmessage = null;
+        if (activeContext && activeContext.state !== "closed") await activeContext.close();
+        activeSocket.close();
+        setIsFinalizing(false);
+        stopping.current = null;
+      }
+    })();
+    stopping.current = pending;
+    return pending;
   }
 
   // The cleanup must run only when the dashboard unmounts, not after each stream-state update.
@@ -225,6 +280,7 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
 
   async function openAudioSocket() {
     if (audioSocket.current?.readyState === WebSocket.OPEN) return audioSocket.current;
+    setFinalSummary(null);
     const socket = new WebSocket(websocketUrl(`/ws/audio/${encodeURIComponent(sessionId)}`));
     socket.binaryType = "arraybuffer";
     socket.onmessage = ({ data }) => {
@@ -240,6 +296,7 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
   }
 
   async function startMicrophone() {
+    if (isFinalizing) return;
     try {
       await stopAudio(false);
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -259,18 +316,19 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
       source.connect(analyser);
       analyserRef.current = analyser;
 
-      const scriptProcessor = context.createScriptProcessor(4096, 1, 1);
-      const silent = context.createGain();
-      silent.gain.value = 0;
-      scriptProcessor.onaudioprocess = ({ inputBuffer }) => {
-        if (socket.readyState !== WebSocket.OPEN || socket.bufferedAmount > config.sample_rate * 8) return;
-        const pcm = floatToPcm16(resample(inputBuffer.getChannelData(0), context.sampleRate, config.sample_rate));
-        socket.send(pcm);
+      await context.audioWorklet.addModule("/audio-processor.js");
+      const nextProcessor = new AudioWorkletNode(context, "relay-processor", { processorOptions: { targetRate: config.sample_rate } });
+      nextProcessor.port.onmessage = ({ data }: MessageEvent<{ type: string; buffer?: ArrayBuffer }>) => {
+        if (!data.buffer || socket.readyState !== WebSocket.OPEN) return;
+        if (socket.bufferedAmount > config.sample_rate * 8) {
+          setSourceStatus("Connection is falling behind · audio frames are being dropped.");
+          return;
+        }
+        socket.send(data.buffer);
       };
-      source.connect(scriptProcessor);
-      scriptProcessor.connect(silent);
-      silent.connect(context.destination);
-      processor.current = scriptProcessor;
+      source.connect(nextProcessor);
+      nextProcessor.connect(context.destination);
+      processor.current = nextProcessor;
       activeSourceRef.current = "microphone";
       setActiveSource("microphone");
       setIsStreaming(true);
@@ -298,12 +356,13 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
   }
 
   async function streamFile(file: File) {
+    if (isFinalizing) return;
     try {
       await stopAudio(false);
       const decodeContext = new AudioContext();
       const decoded = await decodeContext.decodeAudioData(await file.arrayBuffer());
       await decodeContext.close();
-      const samples = resample(decoded.getChannelData(0), decoded.sampleRate, config.sample_rate);
+      const samples = resample(downmix(decoded), decoded.sampleRate, config.sample_rate);
       if (samples.length < config.sample_rate * config.window_seconds) throw new Error(`Audio must be at least ${config.window_seconds} seconds`);
       const socket = await openAudioSocket();
       setActiveSource("file");
@@ -316,7 +375,8 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
         setSourceStatus(`${file.name} · ${Math.min(100, Math.round((offset + frameSamples) / samples.length * 100))}% streamed`);
         await delay(250);
       }
-      setSourceStatus(`${file.name} · analysis complete`);
+      // The server must confirm completion before this file is called analyzed.
+      if (audioSocket.current !== socket) return;
       await stopAudio(false);
     } catch (error) {
       setSourceStatus(error instanceof Error ? error.message : "Could not analyze file");
@@ -515,20 +575,20 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
           <span className="section-kicker"><i className={result ? "live-dot" : ""} />LIVE ANALYSIS</span>
           <h1>{decision[0]}</h1>
           <p>{decision[1]}</p>
-          <div className="source-actions">
+          <div className="source-actions" aria-busy={isFinalizing}>
             {!isStreaming && (
-              <button className="button primary" type="button" onClick={handleStartMicrophoneClick}>
+              <button className="button primary" type="button" disabled={isFinalizing} onClick={handleStartMicrophoneClick}>
                 Start microphone
               </button>
             )}
             {!isStreaming && (
               <label className="button secondary">
                 Analyze a file
-                <input type="file" accept="audio/*,.wav,.flac,.mp3,.m4a,.ogg" onChange={(event) => { const file = event.target.files?.[0]; if (file) void streamFile(file); event.target.value = ""; }} />
+                <input type="file" disabled={isFinalizing} accept="audio/*,.wav,.flac,.mp3,.m4a,.ogg" onChange={(event) => { const file = event.target.files?.[0]; if (file) void streamFile(file); event.target.value = ""; }} />
               </label>
             )}
-            {!isStreaming && <button className="button secondary" type="button" onClick={() => void openPairing()}>Connect phone</button>}
-            {isStreaming && <button className="button danger" type="button" onClick={() => void stopAudio()}>Stop stream</button>}
+            {!isStreaming && <button className="button secondary" type="button" disabled={isFinalizing} onClick={() => void openPairing()}>Connect phone</button>}
+            {isStreaming && <button className="button danger" type="button" disabled={isFinalizing} onClick={() => void stopAudio()}>Stop stream</button>}
           </div>
           <p className="source-status" role="status">{sourceStatus}</p>
         </div>
@@ -576,7 +636,7 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
         )}
 
         <div className="score-wrap">
-          <span className="score-label">CURRENT RISK</span>
+          <span className="score-label">{finalSummary ? (finalSummary.completed ? "FINAL AVERAGE RISK" : "PARTIAL AVERAGE RISK") : "CURRENT RISK"}</span>
           <div className="gauge" style={{ "--risk": riskPercent ?? 0 } as CSSProperties}>
             <div className="gauge-inner">
               <strong>{riskPercent ?? "—"}</strong>
@@ -584,17 +644,21 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
               <small>CLONE RISK</small>
             </div>
           </div>
-          <span className={`risk-badge ${result ? level : "neutral"}`}>
-            {result ? (level === "none" ? "Low risk" : level) : "Waiting"}
+          <span className={`risk-badge ${hasScore ? level : "neutral"}`}>
+            {hasScore ? (level === "none" ? "Low risk" : level) : "Waiting"}
           </span>
-          <span className="score-caption">Smoothed across active audio windows</span>
+          <span className="score-caption">
+            {finalSummary
+              ? `Average of ${finalSummary.window_count} windows · peak ${Math.round(finalSummary.maximum_risk * 100)}% · ${Math.round(finalSummary.high_risk_fraction * 100)}% high-risk`
+              : "Recent-window smoothing while audio is active"}
+          </span>
         </div>
       </section>
 
       <section className="metric-grid" aria-label="Session metrics">
         <Metric label="Detection engine" value={friendlyModel(config.model_kind)} detail={config.model_mode === "baseline" ? "Pipeline validation" : "Checkpoint loaded"} />
         <Metric label="Signal quality" value={result?.signal?.state ?? "No signal"} detail={result?.signal ? `${result.signal.rms_dbfs} dBFS · peak ${Math.round(result.signal.peak * 100)}%` : "— dBFS"} />
-        <Metric label="Processing" value={result ? `${Math.round(result.processing_ms)} ms` : "— ms"} detail={`${result?.chunk_index ?? 0} windows analyzed`} />
+        <Metric label="Processing" value={result ? `${Math.round(result.processing_ms)} ms` : "— ms"} detail={`${finalSummary?.window_count ?? result?.chunk_index ?? 0} windows analyzed`} />
         <Metric label="Voice identity" value={!voiceEnrolled ? "Not enrolled" : result?.identity_match == null ? "Enrolled" : `${Math.round(result.identity_match * 100)}% match`} detail={!voiceEnrolled ? "Optional second signal" : "Compared with reference"} action="Enroll" onAction={() => setEnrollOpen(true)} />
       </section>
 
@@ -625,6 +689,7 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
               </span>
             ))}
           </div>
+          {finalSummary && <p className="score-caption">The acoustic view and explanation below describe the last window. The final average uses all {finalSummary.window_count} analyzed windows.</p>}
           <ExplanationCard explanation={result?.explanation} />
         </article>
         <article className="panel">

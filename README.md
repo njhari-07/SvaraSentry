@@ -449,6 +449,12 @@ Splits should be grouped by:
 - cloned target voice;
 - synthesis or voice-conversion system when measuring unseen-generator performance.
 
+`data_pipeline/build_manifest.py` applies this policy to local data with a fixed seed. Sources
+with meaningful speaker identities are split by whole speaker; use `--row-split-source` only for
+corpora such as C-DAC Kannada and Tamil that do not publish speaker metadata. Row-level splitting
+for those sources is reproducible, but it carries an unavoidable risk of undocumented speakers
+appearing in both train and development data.
+
 A complete evaluation design includes:
 
 ```text
@@ -698,6 +704,22 @@ Start the ML API and Next.js frontend:
 docker compose --profile ml up --build app-ml frontend
 ```
 
+For the hardened production images used by the integrated prototype:
+
+```bash
+docker compose -f compose.production.yaml up --build -d --wait
+```
+
+Both checkpoint mode services mount `training/checkpoints` and `training/pretrained` read-only,
+so the 2.5 GB of model artifacts are not duplicated inside either image. The production backend
+uses the selected Phase A epoch-3 EER threshold (`0.8793585300445557`).
+
+The optional LangChain explanation layer uses Groq without changing the detector score. Store the
+credential only in the ignored `.secrets/groq_api_key` file; Compose mounts it read-only at runtime.
+Production uses `openai/gpt-oss-20b` for the first analysed window and every fifth window after it.
+Intervening windows use the evidence-bound deterministic explanation, and provider errors fall back
+to that same safe explanation without interrupting audio analysis.
+
 Open:
 
 - Dashboard: <http://127.0.0.1:3000>
@@ -730,6 +752,39 @@ Expected result:
   "checkpoint_loaded": true
 }
 ```
+
+For the current native Windows prototype, package the selected training checkpoint and launch the
+API without Docker:
+
+```powershell
+.\venv\Scripts\python.exe -m training.export_checkpoint `
+  runs\xlsr-full\phase-a-best.pt training\checkpoints\model.pt
+.\run_prototype.ps1
+```
+
+The launcher selects checkpoint mode and uses the Phase A epoch-3 validation EER threshold
+(`0.8793585300445557`) as the high-risk boundary. The lower `0.55` boundary remains an early
+caution signal. The health response includes the packaged checkpoint's phase, epoch, EER, and
+calibration threshold so the active model can be audited at runtime.
+
+### Secure phone relay on the local network
+
+Phone microphone capture requires HTTPS. Generate a development CA and a certificate whose subject
+alternative names include the laptop's LAN IP address:
+
+```powershell
+.\setup_relay_certificate.ps1 -PublicHost 192.168.1.50
+.\run_relay.ps1 -PublicHost 192.168.1.50
+```
+
+Replace `192.168.1.50` with the laptop's current LAN address. Trust only
+`certificates/svarasentry-ca.pem` on the laptop and phone before starting; never install or share
+the private key. Open
+`https://192.168.1.50:3000/app` on the laptop, select **Connect phone**, and scan the generated QR
+code. The pairing URL is valid for two minutes. After pairing, an unexpected network drop may
+reuse it for up to 60 seconds; selecting **Stop relay** or resetting the dashboard revokes it
+immediately. The relay sends live 16 kHz mono PCM only for the active session and does not store
+the phone audio.
 
 ## Evidence-bound explanations
 

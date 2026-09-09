@@ -5,7 +5,7 @@ import wave
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from backend.main import app
+from backend.main import app, new_session
 
 
 def wav_bytes(seconds: int = 3) -> bytes:
@@ -77,6 +77,21 @@ class APITests(unittest.TestCase):
         self.assertEqual(result["type"], "error")
         self.assertIn("size limit", result["message"])
 
+    def test_final_summary_is_arithmetic_average_of_all_window_risks(self):
+        session = new_session("final-summary-test")
+        for score in (0.1, 0.5, 0.9):
+            session.chunk_count += 1
+            session.record_risk(score)
+
+        summary = session.finalize_stream()
+
+        self.assertIsNotNone(summary)
+        self.assertEqual(summary["window_count"], 3)
+        self.assertEqual(summary["average_risk"], 0.5)
+        self.assertEqual(summary["maximum_risk"], 0.9)
+        self.assertEqual(summary["high_risk_windows"], 1)
+        self.assertEqual(summary["alert_level"], "none")
+
     def test_enrollment_lifecycle(self):
         session = "enrollment-test"
         response = self.client.post(
@@ -113,13 +128,60 @@ class APITests(unittest.TestCase):
         self.assertEqual(result["type"], "result")
         self.assertEqual(result["chunk_index"], 1)
 
-        # Token should be consumed, connecting again should fail
+        # An unexpected disconnect may reconnect briefly with the same token.
+        with self.client.websocket_connect(f"/ws/audio/pair/{token}") as reconnected:
+            for _ in range(12):
+                reconnected.send_bytes(bytes(8_000))
+            result = reconnected.receive_json()
+            self.assertEqual(result["type"], "result")
+            reconnected.send_text('{"type":"relay_control","action":"stop"}')
+            ack = reconnected.receive_json()
+            self.assertEqual(ack["type"], "audio_stopped")
+            self.assertTrue(ack["summary"]["completed"])
+            with self.assertRaises(WebSocketDisconnect) as stopped:
+                reconnected.receive_json()
+            self.assertEqual(stopped.exception.code, 1000)
+
+        # An intentional stop revokes the token.
         with (
             self.client.websocket_connect(f"/ws/audio/pair/{token}") as rejected,
             self.assertRaises(WebSocketDisconnect) as closed,
         ):
             rejected.receive_json()
         self.assertEqual(closed.exception.code, 1008)
+
+
+    def test_ordered_stop_drains_frames_and_persists_all_window_average(self):
+        session_id = "draining-stop-test"
+        with self.client.websocket_connect(f"/ws/audio/{session_id}") as socket:
+            for _ in range(20):
+                socket.send_bytes(bytes(8_000))
+            socket.send_json({"type": "audio_control", "action": "stop"})
+            results = [socket.receive_json() for _ in range(3)]
+            ack = socket.receive_json()
+            self.assertEqual([r["chunk_index"] for r in results], [1, 2, 3])
+            summary = ack["summary"]
+            self.assertEqual(ack["type"], "audio_stopped")
+            self.assertEqual(summary["window_count"], 3)
+            self.assertAlmostEqual(summary["average_risk"], sum(r["risk_score"] for r in results) / 3, places=3)
+            self.assertTrue(summary["completed"])
+        snapshot = self.client.get(f"/api/sessions/{session_id}").json()
+        self.assertEqual(snapshot["final_summary"], summary)
+        with self.client.websocket_connect(f"/ws/audio/{session_id}") as socket:
+            socket.send_json({"type": "audio_control", "action": "stop"})
+            self.assertIsNone(socket.receive_json()["summary"])
+        self.assertIsNone(self.client.get(f"/api/sessions/{session_id}").json()["final_summary"])
+
+    def test_disconnect_summary_is_partial_and_reset_is_blocked_while_active(self):
+        session_id = "partial-stop-test"
+        with self.client.websocket_connect(f"/ws/audio/{session_id}") as socket:
+            self.assertEqual(self.client.post(f"/api/sessions/{session_id}/reset").status_code, 409)
+            for _ in range(12):
+                socket.send_bytes(bytes(8_000))
+            socket.receive_json()
+        summary = self.client.get(f"/api/sessions/{session_id}").json()["final_summary"]
+        self.assertFalse(summary["completed"])
+        self.assertEqual(summary["window_count"], 1)
 
 
 if __name__ == "__main__":

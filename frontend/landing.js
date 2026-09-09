@@ -227,7 +227,6 @@
 
 
 
-"use strict";
 (function(){
   const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const coarse = window.matchMedia && window.matchMedia('(pointer:coarse)').matches;
@@ -296,7 +295,7 @@
   /* ---------- scroll index ---------- */
   const idxWrap=$('#idx');
   const idxSections=$$('section[data-idx]').filter(s=>s.getAttribute('data-idx'));
-  idxSections.forEach((s,i)=>{
+  idxSections.forEach((s)=>{
     const it=document.createElement('div'); it.className='it';
     it.innerHTML=`<span class="lab">${s.getAttribute('data-idx')}</span><span class="pip"></span>`;
     it.addEventListener('click',()=>s.scrollIntoView({behavior:'smooth'}));
@@ -309,7 +308,7 @@
     if(countsDone) return; countsDone=true;
     $$('#spec [data-count]').forEach(el=>{
       const tgt=parseFloat(el.getAttribute('data-count')); const start=performance.now(); const dur=1400;
-      function t(now){ const k=clamp((now-start)/dur,0,1); const e=1-Math.pow(1-k,3); el.firstChild ? el.textContent=Math.round(e*tgt) : null; el.textContent=Math.round(e*tgt); if(k<1) requestAnimationFrame(t); }
+      function t(now){ const k=clamp((now-start)/dur,0,1); const e=1-Math.pow(1-k,3); el.textContent=Math.round(e*tgt); if(k<1) requestAnimationFrame(t); }
       requestAnimationFrame(t);
     });
   }
@@ -409,7 +408,7 @@
     if(!active||!INK) return;
     if(active.id==='direct') return; // direct handled by its scrub
     const d=active.getAttribute('data-fluid');
-    if(d && active.id!==lastFluidId){ try{ INK.toState(JSON.parse(d)); lastFluidId=active.id; }catch(e){} }
+    if(d && active.id!==lastFluidId){ try{ INK.toState(JSON.parse(d)); lastFluidId=active.id; }catch{} }
   }
 
   /* ---------- scroll velocity → fluid kick ---------- */

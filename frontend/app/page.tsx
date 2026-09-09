@@ -1,44 +1,34 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useSyncExternalStore } from "react";
 import { Dashboard } from "@/components/dashboard";
 
+type View = "landing" | "dashboard";
+
+function subscribeToView(onStoreChange: () => void) {
+  window.addEventListener("hashchange", onStoreChange);
+  return () => window.removeEventListener("hashchange", onStoreChange);
+}
+
+function getViewSnapshot(): View {
+  return window.location.hash === "#dashboard" ? "dashboard" : "landing";
+}
+
+function getServerViewSnapshot(): View {
+  return "landing";
+}
+
 export default function HomePage() {
-  const [view, setView] = useState<"landing" | "dashboard">("landing");
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      if (window.location.hash === "#dashboard" || window.location.pathname === "/app") {
-        setView("dashboard");
-      }
-    }
-
-    const handleHash = () => {
-      if (window.location.hash === "#dashboard") {
-        setView("dashboard");
-      } else if (window.location.hash === "#landing" || !window.location.hash) {
-        setView("landing");
-      }
-    };
-
-    window.addEventListener("hashchange", handleHash);
-    return () => window.removeEventListener("hashchange", handleHash);
-  }, []);
+  const view = useSyncExternalStore(subscribeToView, getViewSnapshot, getServerViewSnapshot);
 
   const goToDashboard = () => {
-    setView("dashboard");
-    if (typeof window !== "undefined") {
-      window.location.hash = "dashboard";
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
+    window.location.hash = "dashboard";
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const goToLanding = () => {
-    setView("landing");
-    if (typeof window !== "undefined") {
-      window.location.hash = "";
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
+    window.location.hash = "";
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (

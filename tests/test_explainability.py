@@ -15,6 +15,11 @@ class _Runnable:
         return self.response
 
 
+class _FailingRunnable:
+    def invoke(self, _input, /, **_kwargs):
+        raise TimeoutError("provider unavailable")
+
+
 class ExplainabilityTests(unittest.TestCase):
     def test_top_time_regions_are_separated_and_json_safe(self):
         regions = top_time_regions(
@@ -119,6 +124,18 @@ class ExplainabilityTests(unittest.TestCase):
 
         self.assertEqual(rewritten["source"], "langchain")
         self.assertIn("Pause sensitive actions", rewritten["summary"])
+
+    def test_langchain_rewrite_falls_back_when_provider_fails(self):
+        explanation = {
+            "source": "deterministic",
+            "summary": "Caution. Verify independently.",
+            "limits": ["Model score is not proof."],
+        }
+
+        rewritten = rewrite_with_langchain(_FailingRunnable(), explanation)
+
+        self.assertEqual(rewritten["source"], "deterministic-fallback")
+        self.assertEqual(rewritten["summary"], explanation["summary"])
 
 
 if __name__ == "__main__":

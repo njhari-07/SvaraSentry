@@ -159,7 +159,7 @@ class AugmentationResult:
 
 
 class AugmentationAssets:
-    """Indexes optional noise/RIR assets and lazily caches decoded CPU tensors.
+    """Indexes optional noise/RIR paths and lazily decodes sampled CPU tensors.
 
     Supplying an asset directory is an explicit request to enable that asset
     class.  A missing or invalid directory raises early instead of weakening an
@@ -183,19 +183,9 @@ class AugmentationAssets:
         paths = tuple(
             sorted(p for p in directory.rglob("*") if p.suffix.lower() in _ASSET_SUFFIXES)
         )
-        valid: list[Path] = []
-        for path in paths:
-            try:
-                audio, source_rate = _decode_asset(path)
-                if source_rate != self.sample_rate:
-                    audio = _resample(audio, source_rate, self.sample_rate)
-                if audio.numel() and torch.sqrt(torch.mean(audio.square())).item() > 1e-5:
-                    valid.append(path)
-            except (OSError, RuntimeError, ValueError):
-                continue
-        if not valid:
-            raise ValueError(f"no valid, non-silent {kind} assets found in {directory}")
-        return tuple(valid)
+        if not paths:
+            raise ValueError(f"no supported {kind} assets found in {directory}")
+        return paths
 
     def load(self, path: Path) -> torch.Tensor:
         cached = self._cache.get(path)
@@ -205,7 +195,11 @@ class AugmentationAssets:
         audio, source_rate = _decode_asset(path)
         if source_rate != self.sample_rate:
             audio = _resample(audio, source_rate, self.sample_rate)
-        if not audio.numel() or not torch.isfinite(audio).all():
+        if (
+            not audio.numel()
+            or not torch.isfinite(audio).all()
+            or torch.sqrt(torch.mean(audio.square())).item() <= 1e-5
+        ):
             raise ValueError(f"invalid augmentation asset: {path}")
         self._cache[path] = audio.contiguous()
         self._cache.move_to_end(path)

@@ -261,21 +261,57 @@ Alternatively, keep the archive in `$Downloads`, outside the repository, if Wind
 
 Do not copy the Linux-generated CSV manifest. It contains absolute Linux paths and must be rebuilt with Windows paths.
 
-The official protocol-aware builder is:
+The protocol-aware and leakage-safe builder is:
 
 ```powershell
 Set-Location $Project
 
-python data_pipeline/build_manifest.py `
+$RealDirs = @(
+    "data/raw/real/team_recordings/aditi",
+    "data/raw/real/team_recordings/diya",
+    "data/raw/real/team_recordings/harish",
+    "data/raw/real/team_recordings/keerti",
+    "data/raw/real/team_recordings/praj",
+    "data/raw/real/team_recordings/pranathi",
+    "data/raw/real/cdac_kannada",
+    "data/raw/real/cdac_tamil",
+    "data/raw/real/odia_tts"
+)
+$FakeDirs = @(
+    "data/raw/fake/sarvam_cloned/aditi",
+    "data/raw/fake/sarvam_cloned/diya",
+    "data/raw/fake/sarvam_cloned/harish",
+    "data/raw/fake/sarvam_cloned/praj",
+    "data/raw/fake/sarvam_cloned/pranathi"
+)
+$ManifestArgs = @()
+foreach ($Dir in $RealDirs) { $ManifestArgs += @("--real", $Dir) }
+foreach ($Dir in $FakeDirs) { $ManifestArgs += @("--fake", $Dir) }
+
+python data_pipeline/build_manifest.py @ManifestArgs `
     --asvspoof-root data/raw/LA `
+    --row-split-source cdac_kannada `
+    --row-split-source cdac_tamil `
+    --exclude-language hi `
+    --split-seed 42 `
+    --train-ratio 0.8 `
     --output data/manifests/dataset_manifest.csv
 ```
 
 Expected result:
 
 ```text
-Wrote 50224 rows to data\manifests\dataset_manifest.csv
+Wrote 51180 rows to data\manifests\dataset_manifest.csv
 ```
+
+The builder preserves the official ASVspoof protocol splits. It assigns each team member and
+their cloned samples wholly to one split, and it uses the retained Odia speaker IDs to prevent
+Odia speaker overlap while balancing the resulting row counts. C-DAC Kannada and Tamil expose no
+speaker identity, so those two sources use a reproducible 80/20 row-level split. This is a
+documented source-metadata limitation rather than a guarantee of speaker isolation for those
+corpora. Hindi is excluded because the available two-clip sample is not representative. Remaining
+language names are normalized to ISO codes (`en`, `kn`, `or`, and `ta`). The original Hindi audio
+files remain preserved under `data/raw/real/team_recordings`.
 
 Verify the CSV:
 

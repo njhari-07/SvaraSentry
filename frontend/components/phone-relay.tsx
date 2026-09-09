@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 import { websocketUrl } from "@/lib/api";
+import { finishAudio, flushAudioProcessor } from "@/lib/finish-audio";
 
-type RelayState = "idle" | "requesting" | "connecting" | "streaming" | "reconnecting" | "stopped" | "error";
+type RelayState = "idle" | "requesting" | "connecting" | "streaming" | "reconnecting" | "stopping" | "stopped" | "error";
 
 export function PhoneRelay() {
   const token = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("pair");
@@ -62,6 +63,7 @@ export function PhoneRelay() {
     nextSocket.onmessage = ({ data }) => {
       try {
         const message = JSON.parse(data) as { type?: string; message?: string };
+        if (message.type === "stop_requested") void stop();
         if (message.type === "error") {
           setState("error");
           setCopy(message.message ?? "The relay could not connect.");
@@ -80,10 +82,19 @@ export function PhoneRelay() {
       attempts.current += 1;
       setState("reconnecting");
       setCopy(`Reconnecting (${attempts.current}/5)…`);
-      window.setTimeout(() => { void connect(); }, Math.min(1000 * 2 ** attempts.current, 10_000));
+      window.setTimeout(() => {
+        void connect().catch(() => {
+          // onclose schedules the next bounded reconnect attempt.
+        });
+      }, Math.min(1000 * 2 ** attempts.current, 10_000));
     };
     await new Promise<void>((resolve, reject) => {
-      nextSocket.onopen = () => resolve();
+      nextSocket.onopen = () => {
+        attempts.current = 0;
+        setState("streaming");
+        setCopy("Live audio is being analyzed by the connected dashboard.");
+        resolve();
+      };
       nextSocket.onerror = () => reject(new Error("Could not reach the dashboard"));
     });
   }
@@ -100,7 +111,8 @@ export function PhoneRelay() {
       await nextContext.audioWorklet.addModule("/audio-processor.js");
       const source = nextContext.createMediaStreamSource(stream.current);
       const nextProcessor = new AudioWorkletNode(nextContext, "relay-processor", { processorOptions: { targetRate: 16_000 } });
-      nextProcessor.port.onmessage = ({ data }: MessageEvent<{ buffer: ArrayBuffer; dbfs: number }>) => {
+      nextProcessor.port.onmessage = ({ data }: MessageEvent<{ type: string; buffer?: ArrayBuffer; dbfs: number }>) => {
+        if (!data.buffer) return;
         const activeSocket = socket.current;
         if (!activeSocket || activeSocket.readyState !== WebSocket.OPEN) return;
         if (activeSocket.bufferedAmount > 128_000) {
@@ -126,9 +138,20 @@ export function PhoneRelay() {
 
   async function stop() {
     shouldReconnect.current = false;
-    setState("stopped");
-    setCopy("Audio is no longer being sent to the dashboard.");
-    await cleanup();
+    setState("stopping");
+    setCopy("Microphone stopped. Finishing queued audio analysis…");
+    stream.current?.getTracks().forEach((track) => track.stop());
+    try {
+      if (processor.current) await flushAudioProcessor(processor.current);
+      if (socket.current) await finishAudio(socket.current);
+      setState("stopped");
+      setCopy("Final analysis is ready on the dashboard.");
+    } catch (error) {
+      setState("error");
+      setCopy(error instanceof Error ? error.message : "Could not confirm final analysis.");
+    } finally {
+      await cleanup();
+    }
   }
 
   const live = state === "streaming" || state === "reconnecting";
@@ -185,7 +208,7 @@ export function PhoneRelay() {
           </dl>
         )}
 
-        <button className={live ? "button danger" : "button primary"} type="button" disabled={!usable && state !== "error"} onClick={() => void (live ? stop() : start())}>{live ? "Stop relay" : "Start relay"}</button>
+        <button className={live ? "button danger" : "button primary"} type="button" disabled={state === "stopping" || (!usable && state !== "error")} onClick={() => void (live ? stop() : start())}>{state === "stopping" ? "Finishing analysis…" : live ? "Stop relay" : "Start relay"}</button>
         <div className="relay-privacy"><span>16 kHz PCM</span><span>Session only</span><span>No server storage</span></div>
       </section>
 

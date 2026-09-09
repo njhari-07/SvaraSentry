@@ -137,16 +137,16 @@ async def stream_audio_telemetry():
               <span className="text-pink-400">import</span> json{"\n\n"}
               <span className="text-white/40"># Connect to SvaraSentry Real-Time Audio Telemetry WebSocket</span>{"\n"}
               <span className="text-pink-400">async def</span> <span className="text-violet-300 font-bold">stream_audio_telemetry</span>():{"\n"}
-              {"  "}uri = <span className="text-green-300">"ws://localhost:8000/ws/audio/active-call-001"</span>{"\n"}
+              {"  "}uri = <span className="text-green-300">{'"ws://localhost:8000/ws/audio/active-call-001"'}</span>{"\n"}
               {"  "}<span className="text-pink-400">async with</span> websockets.connect(uri) <span className="text-pink-400">as</span> ws:{"\n"}
               {"    "}<span className="text-white/40"># Stream 16 kHz Mono PCM audio chunks (200ms slices)</span>{"\n"}
               {"    "}<span className="text-pink-400">await</span> ws.send(pcm_chunk_bytes){"\n\n"}
               {"    "}<span className="text-white/40"># Receive live deepfake risk & operator guidance</span>{"\n"}
               {"    "}message = <span className="text-pink-400">await</span> ws.recv(){"\n"}
               {"    "}result = json.loads(message){"\n\n"}
-              {"    "}<span className="text-cyan-300">print</span>(f<span className="text-green-300">"Deepfake Risk: &#123;result['deepfake_probability']&#125;%"</span>){"\n"}
-              {"    "}<span className="text-cyan-300">print</span>(f<span className="text-green-300">"Alert State:   &#123;result['alert_level']&#125;"</span>){"\n"}
-              {"    "}<span className="text-cyan-300">print</span>(f<span className="text-green-300">"Latency:       &#123;result['latency_ms']&#125; ms"</span>){"\n"}
+              {"    "}<span className="text-cyan-300">print</span>(f<span className="text-green-300">{`"Deepfake Risk: {result['deepfake_probability']}%"`}</span>){"\n"}
+              {"    "}<span className="text-cyan-300">print</span>(f<span className="text-green-300">{`"Alert State:   {result['alert_level']}"`}</span>){"\n"}
+              {"    "}<span className="text-cyan-300">print</span>(f<span className="text-green-300">{`"Latency:       {result['latency_ms']} ms"`}</span>){"\n"}
             </code>
           </pre>
         </div>

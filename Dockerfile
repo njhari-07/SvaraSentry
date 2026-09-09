@@ -1,8 +1,10 @@
-FROM python:3.13-slim AS runtime
+FROM python:3.12-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_DEFAULT_TIMEOUT=120 \
+    PIP_RETRIES=10
 
 WORKDIR /app
 
@@ -17,7 +19,9 @@ COPY pyproject.toml README.md ./
 COPY backend ./backend
 COPY data_pipeline ./data_pipeline
 COPY training ./training
-RUN python -m pip install --no-cache-dir --no-deps . && rm -rf build
+RUN python -m pip install --no-cache-dir --no-deps . \
+    && find backend data_pipeline training -type f -name '*.py' -exec chmod 0644 {} + \
+    && rm -rf build
 
 RUN useradd --create-home --uid 10001 appuser \
     && mkdir -p /app/data /app/training/checkpoints \
@@ -32,18 +36,23 @@ CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 FROM runtime AS ml-runtime
 USER root
+ARG PYTORCH_VERSION=2.11.0
 COPY requirements-ml.txt ./
-RUN python -m pip install --no-cache-dir -r requirements-ml.txt
-USER appuser
-
-FROM runtime AS development
-USER root
-COPY requirements-ml.txt requirements-dev.txt ./
 RUN python -m pip install --no-cache-dir \
         --index-url https://download.pytorch.org/whl/cpu \
-        "torch>=2.10,<3" "torchaudio>=2.10,<3" \
-    && python -m pip install --no-cache-dir -r requirements-ml.txt -r requirements-dev.txt
+        "torch==${PYTORCH_VERSION}+cpu" "torchaudio==${PYTORCH_VERSION}+cpu" \
+    && python -m pip install --no-cache-dir -r requirements-ml.txt \
+    && python -m pip check
+USER appuser
+
+FROM ml-runtime AS development
+USER root
+COPY requirements-dev.txt ./
+RUN python -m pip install --no-cache-dir -r requirements-dev.txt \
+    && python -m pip check
 COPY tests ./tests
+RUN find tests -type f -name '*.py' -exec chmod 0644 {} + \
+    && chown -R appuser:appuser /app/tests
 USER appuser
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
