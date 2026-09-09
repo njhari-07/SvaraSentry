@@ -5,55 +5,52 @@
 .wm-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 999;
+  z-index: 9999;
   display: grid;
   place-items: center;
   padding: 20px;
-  background: rgba(15, 23, 42, 0.65);
-  backdrop-filter: blur(8px);
+  background: rgba(3, 8, 18, 0.78);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   animation: wmFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .wm-card {
   position: relative;
-  width: 100%;
-  max-width: 820px;
-  background: #ffffff;
-  border-radius: 26px;
-  box-shadow: 
-    0 25px 60px -15px rgba(0, 0, 0, 0.3),
-    0 0 0 1px rgba(0, 0, 0, 0.05);
+  width: min(800px, 100%);
+  border-radius: 20px;
+  gap: 1px;
+  padding: 1px;
+  color: #f0f7ff;
+  background: #101520;
+  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   display: grid;
-  grid-template-columns: 360px 1fr;
-  padding: 16px;
-  gap: 12px;
-  color: #1e293b;
-  animation: wmSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  grid-template-columns: 320px 1fr;
   overflow: hidden;
+  animation: wmSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .wm-close {
   position: absolute;
-  top: 18px;
-  right: 18px;
+  top: 16px;
+  right: 16px;
   width: 32px;
   height: 32px;
   border-radius: 50%;
   border: none;
   background: transparent;
-  color: #64748b;
+  color: #718096;
   display: grid;
   place-items: center;
   cursor: pointer;
-  font-size: 1.25rem;
-  line-height: 1;
-  transition: background 0.15s, color 0.15s;
+  transition: all 0.15s ease;
   z-index: 10;
 }
 
 .wm-close:hover {
-  background: #f1f5f9;
-  color: #0f172a;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 /* ==========================================================================
@@ -64,12 +61,12 @@
   width: 100%;
   height: 100%;
   min-height: 380px;
-  border-radius: 20px;
+  border-radius: 19px 0 0 19px;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #09101f;
+  background: #0d121c;
 }
 
 /* Theme: Tan / Golden Ochre */
@@ -90,22 +87,22 @@
   --pat-dark: rgba(0, 0, 0, 0.22);
 }
 
-/* Theme: Luminous Light Blue */
+/* Theme: Matte Slate Blue (Less Glowy) */
 .wm-color-blue {
-  --b1: #3b82f6;
-  --b2: #60a5fa;
-  --b3: #38bdf8;
-  --b4: #2563eb;
-  --b5: #1d4ed8;
-  --b6: #7dd3fc;
-  --b7: #93c5fd;
-  --b8: #1e40af;
-  --b9: #0ea5e9;
-  --b10: #4f8bf9;
-  --b11: #bae6fd;
-  --b12: #1e3a8a;
-  --pat-light: rgba(255, 255, 255, 0.32);
-  --pat-dark: rgba(10, 40, 90, 0.20);
+  --b1: #24354f;
+  --b2: #304566;
+  --b3: #3c567e;
+  --b4: #1e2c42;
+  --b5: #182335;
+  --b6: #476593;
+  --b7: #5172a3;
+  --b8: #1b263b;
+  --b9: #354c70;
+  --b10: #3f5b87;
+  --b11: #5e82b5;
+  --b12: #141d2d;
+  --pat-light: rgba(255, 255, 255, 0.12);
+  --pat-dark: rgba(0, 0, 0, 0.28);
 }
 
 /* Theme: Emerald / Defense Green */
@@ -134,7 +131,8 @@
   grid-template-columns: repeat(6, 1fr);
   grid-template-rows: repeat(7, 1fr);
   gap: 1px;
-  background: rgba(0, 0, 0, 0.15);
+  opacity: 0.85;
+  background: rgba(10, 15, 25, 0.35);
 }
 
 .wm-block {
@@ -222,52 +220,56 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.35));
 }
 
 .wm-silhouette-badge {
-  width: 96px;
-  height: 96px;
-  fill: #ffffff;
-  color: #ffffff;
+  width: 84px;
+  height: 84px;
+  fill: #f4f4f5;
+  color: #f4f4f5;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.45));
 }
 
 /* ==========================================================================
    Right: Clean Content Panel
    ========================================================================== */
 .wm-content-panel {
+  padding: 28px 32px 22px 26px;
+  border-radius: 0 19px 19px 0;
+  background: #111622;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 24px 28px 16px 20px;
 }
 
 .wm-header {
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
 .wm-eyebrow {
   display: block;
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: #64748b;
-  margin-bottom: 4px;
-  letter-spacing: -0.01em;
+  color: #6a8bb8;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
 }
 
 .wm-title {
-  font-size: 1.7rem;
+  color: #f4f4f5;
+  font-size: 1.55rem;
   font-weight: 700;
-  color: #0f172a;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.03em;
   margin-bottom: 6px;
   line-height: 1.2;
 }
 
 .wm-subtitle {
-  font-size: 0.95rem;
-  color: #475569;
-  line-height: 1.45;
+  color: #94a3b8;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin-bottom: 18px;
 }
 
 /* Feature Bullets */
@@ -282,34 +284,34 @@
 .wm-bullet {
   display: flex;
   align-items: flex-start;
-  gap: 14px;
-  padding: 16px 0;
-  border-top: 1px solid #f1f5f9;
+  gap: 12px;
+  padding: 13px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .wm-bullet:first-child {
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .wm-bullet-icon {
-  flex: 0 0 24px;
-  width: 24px;
-  height: 24px;
-  color: #334155;
-  margin-top: 1px;
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  color: #6a8bb8;
+  margin-top: 2px;
 }
 
 .wm-bullet-icon svg {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   stroke-width: 1.8;
 }
 
 .wm-bullet-text {
-  font-size: 0.92rem;
-  color: #334155;
+  font-size: 0.88rem;
+  color: #cbd5e1;
   line-height: 1.45;
-  font-weight: 450;
+  font-weight: 400;
 }
 
 /* Footer / Action Controls */
@@ -317,23 +319,22 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 28px;
+  margin-top: 22px;
   padding-top: 12px;
 }
 
 .wm-progress-rail {
-  width: 64px;
+  width: 72px;
   height: 4px;
-  background: #e2e8f0;
-  border-radius: 9999px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
   overflow: hidden;
-  position: relative;
 }
 
 .wm-progress-bar {
   height: 100%;
-  background: #2563eb;
-  border-radius: 9999px;
+  background: #35537d;
+  border-radius: 999px;
   transition: width 0.3s ease;
 }
 
@@ -341,19 +342,24 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: #1d4ed8;
-  color: #ffffff;
-  padding: 10px 22px;
-  border-radius: 9999px;
-  font-size: 0.92rem;
+  background: #253d60;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f4f4f5;
+  padding: 9px 22px;
+  border-radius: 8px;
+  font-size: 0.88rem;
   font-weight: 600;
-  border: none;
   cursor: pointer;
-  transition: background 0.15s, transform 0.1s;
+  box-shadow: none;
+  transition: all 0.15s ease;
 }
 
 .wm-action-btn:hover {
-  background: #1e40af;
+  background: #2e4a74;
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  box-shadow: none;
+  transform: translateY(-1px);
 }
 
 .wm-action-btn:active {

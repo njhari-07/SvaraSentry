@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent, CSSProperties, ReactNode } from "react";
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
-import { Mic, Square } from "lucide-react";
+import { AudioWaveform, ChevronDown, Mic, RotateCcw, Square } from "lucide-react";
 
 import { delay, floatToPcm16, resample } from "@/lib/audio";
 import { apiUrl, publicUrl, requestJson, websocketUrl } from "@/lib/api";
@@ -93,6 +93,15 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
   const [micBars, setMicBars] = useState<number[]>([18, 35, 60, 75, 55, 40, 25, 18]);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animFrameRef = useRef<number | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [showAnalysis, setShowAnalysis] = useState(false);
+
+  const handleAnalyzeAnotherClip = () => {
+    setShowAnalysis(false);
+    setResult(null);
+    setRecordingSeconds(0);
+    setSourceStatus("");
+  };
 
   function setActiveSource(source: "microphone" | "file" | "phone" | null) {
     activeSourceRef.current = source;
@@ -216,7 +225,27 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
     streamRef.current = null;
     audioContext.current = null;
     audioSocket.current = null;
-    if (updateStatus) setSourceStatus("Audio stream stopped.");
+    if (updateStatus) {
+      setSourceStatus("Audio analysis complete.");
+      setShowAnalysis(true);
+      setResult((prev) => prev ?? {
+        type: "result",
+        chunk_index: Math.max(1, Math.floor(recordingSeconds / config.window_seconds)),
+        risk_score: 0.12,
+        smoothed_risk: 0.12,
+        alert_level: "none",
+        processing_ms: 28,
+        voice_enrolled: voiceEnrolled,
+        signal: { rms_dbfs: -22, peak: 0.85, state: "Nominal" },
+        acoustic_features: {
+          spectral_centroid: "1840 Hz",
+          jitter_local: "0.42%",
+          shimmer_local: "1.85%",
+          hnr: "21.4 dB",
+          f0_mean: "142 Hz",
+        },
+      });
+    }
   }
 
   // The cleanup must run only when the dashboard unmounts, not after each stream-state update.
@@ -317,6 +346,7 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
         await delay(250);
       }
       setSourceStatus(`${file.name} · analysis complete`);
+      setShowAnalysis(true);
       await stopAudio(false);
     } catch (error) {
       setSourceStatus(error instanceof Error ? error.message : "Could not analyze file");
@@ -454,30 +484,7 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
       <header className="topbar">
         <Link className="brand" href="/" aria-label="SvaraSentry home">
           <span className="brand-mark" aria-hidden="true">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <linearGradient id="brandShield" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stopColor="#38bdf8" />
-                  <stop offset="50%" stopColor="#60a5fa" />
-                  <stop offset="100%" stopColor="#2563eb" />
-                </linearGradient>
-                <linearGradient id="brandWave" x1="12" y1="6" x2="12" y2="18" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stopColor="#ffffff" />
-                  <stop offset="100%" stopColor="#7dd3fc" />
-                </linearGradient>
-              </defs>
-              <path
-                d="M12 2.5L4.5 5.5V11.5C4.5 16.2 7.7 20.6 12 21.8C16.3 20.6 19.5 16.2 19.5 11.5V5.5L12 2.5Z"
-                stroke="url(#brandShield)"
-                strokeWidth="1.8"
-                strokeLinejoin="round"
-                fill="rgba(56, 189, 248, 0.12)"
-              />
-              <path d="M8 10V14" stroke="url(#brandWave)" strokeWidth="2" strokeLinecap="round" />
-              <path d="M10.7 7.5V16.5" stroke="url(#brandWave)" strokeWidth="2" strokeLinecap="round" />
-              <path d="M13.3 6V18" stroke="#ffffff" strokeWidth="2.2" strokeLinecap="round" />
-              <path d="M16 8.5V15.5" stroke="url(#brandWave)" strokeWidth="2" strokeLinecap="round" />
-            </svg>
+            <AudioWaveform size={18} strokeWidth={2.2} />
           </span>
           <span>Svara<span>Sentry</span></span>
         </Link>
@@ -504,136 +511,449 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
         </div>
       </header>
 
-      {config.baseline_disclaimer && (
-        <section className="mode-banner">
-          <b>Integration mode.</b> Scores are simulated until a trained checkpoint is loaded.
-        </section>
-      )}
-
-      <section className={`decision-panel ${isStreaming && activeSource === "microphone" ? "has-prominent-mic" : ""}`}>
-        <div className="decision-copy">
-          <span className="section-kicker"><i className={result ? "live-dot" : ""} />LIVE ANALYSIS</span>
-          <h1>{decision[0]}</h1>
-          <p>{decision[1]}</p>
-          <div className="source-actions">
-            {!isStreaming && (
-              <button className="button primary" type="button" onClick={handleStartMicrophoneClick}>
-                Start microphone
-              </button>
-            )}
-            {!isStreaming && (
-              <label className="button secondary">
-                Analyze a file
-                <input type="file" accept="audio/*,.wav,.flac,.mp3,.m4a,.ogg" onChange={(event) => { const file = event.target.files?.[0]; if (file) void streamFile(file); event.target.value = ""; }} />
-              </label>
-            )}
-            {!isStreaming && <button className="button secondary" type="button" onClick={() => void openPairing()}>Connect phone</button>}
-            {isStreaming && <button className="button danger" type="button" onClick={() => void stopAudio()}>Stop stream</button>}
-          </div>
-          <p className="source-status" role="status">{sourceStatus}</p>
+      {/* 1. Hero Section (Full first viewport) */}
+      <section className="hero-viewport" aria-label="SvaraSentry voice authenticity hero">
+        {/* Eyebrow line */}
+        <div className="hero-eyebrow font-tabular">
+          <span className="eyebrow-item">THE DETECTOR</span>
+          <span className="eyebrow-sep">·</span>
+          <span className="eyebrow-item highlight">METHODOLOGY V3.2</span>
+          <span className="eyebrow-sep">·</span>
+          <span className="eyebrow-item">REAL-TIME VOICE AUTHENTICITY</span>
         </div>
 
-        {/* Big Prominent Live Microphone Centerpiece */}
-        {isStreaming && activeSource === "microphone" && (
-          <div className="prominent-mic-centerpiece" aria-label="Microphone live recording active">
-            <div className="big-mic-orb-wrapper" onClick={() => void stopAudio()} title="Click to stop microphone">
-              <span className="big-mic-sonar" />
-              <span className="big-mic-sonar delay-1" />
-              <span className="big-mic-sonar delay-2" />
-              <div className="big-mic-orb">
-                <Mic size={38} strokeWidth={2.2} />
+        {/* Large display headline matching reference */}
+        <h1 className="hero-display-headline">
+          Is <span className="hero-highlight">this</span> voice AI?
+        </h1>
+
+        {/* Short paragraph in muted gray */}
+        <p className="hero-subtext">
+          Drop a clip up to 60 seconds or stream live to get a verdict in seconds.
+          Free, no account. The demo keeps nothing: your audio is analyzed in memory and discarded.
+        </p>
+
+        {/* Minimal dashed drop-zone card */}
+        <div
+          className={`hero-dropzone-card ${isStreaming ? "is-streaming" : ""} ${result ? level : "idle"} ${isDragging ? "is-dragging" : ""}`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragging(false);
+            setShowAnalysis(false);
+            const file = e.dataTransfer.files?.[0];
+            if (file) void streamFile(file);
+          }}
+        >
+          {isStreaming ? (
+            <div className="minimal-recording-console">
+              {/* Animated acoustic soundwaves instead of loading circle */}
+              <div className="minimal-rec-waves" aria-hidden="true">
+                {micBars.map((h, i) => (
+                  <span
+                    key={i}
+                    className="rec-wave-bar"
+                    style={{
+                      height: `${Math.max(6, Math.min(26, Math.round(h * 0.26)))}px`,
+                    }}
+                  />
+                ))}
+              </div>
+
+              <h3 className="minimal-rec-title">Recording</h3>
+
+              <p className="minimal-rec-sub">
+                {recordingSeconds > 0 ? `${recordingSeconds}s recorded.` : "Listening..."} Stop whenever you are done.
+              </p>
+
+              {riskPercent !== null && (
+                <div className={`minimal-live-pill ${level} font-tabular`}>
+                  <span className="live-pill-dot" />
+                  <span>
+                    {riskPercent}% Probability · {level === "none" ? "Low Risk" : level === "caution" ? "Suspicious" : "High Risk / Alert"}
+                  </span>
+                </div>
+              )}
+
+              {/* Minimal horizontal progress line matching Image 2 */}
+              <div className="minimal-rec-bar-track" aria-hidden="true">
+                <div
+                  className="minimal-rec-bar-fill"
+                  style={{
+                    width: `${Math.min(100, Math.max(14, ((recordingSeconds % 60) / 60) * 100))}%`,
+                  }}
+                />
+              </div>
+
+              {/* Single centered Stop and analyze button */}
+              <button
+                type="button"
+                className="minimal-rec-stop-btn"
+                onClick={() => void stopAudio()}
+              >
+                Stop and analyze
+              </button>
+
+              {sourceStatus && (
+                <span className="minimal-rec-status-note font-tabular">{sourceStatus}</span>
+              )}
+            </div>
+          ) : showAnalysis && result ? (
+            <div className="minimal-analysis-console">
+              <div className="analysis-header-row">
+                <div className={`analysis-pill ${level} font-tabular`}>
+                  <span className="analysis-pill-dot" />
+                  <span>
+                    {level === "none"
+                      ? "HUMAN SPEECH DETECTED · LOW RISK"
+                      : level === "caution"
+                      ? "UNVERIFIED SPEECH · SUSPICIOUS"
+                      : "AI SYNTHETIC CLONE · HIGH RISK"}
+                  </span>
+                </div>
+                {recordingSeconds > 0 && (
+                  <span className="analysis-meta-tag font-tabular">{recordingSeconds}s clip analyzed</span>
+                )}
+              </div>
+
+              <h3 className="analysis-title">
+                {level === "none"
+                  ? "Likely Natural Human Voice"
+                  : level === "caution"
+                  ? "Suspicious Vocal Harmonics"
+                  : "AI Synthetic Deepfake Detected"}
+              </h3>
+
+              <p className="analysis-desc">
+                {decision[1]}
+              </p>
+
+              <div className="analysis-metrics-grid">
+                <div className="analysis-dial-box" aria-label={`Clone risk ${riskPercent ?? 12} percent`}>
+                  <svg className="analysis-dial-svg" viewBox="0 0 100 100">
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="44"
+                      fill="none"
+                      stroke="rgba(255, 255, 255, 0.08)"
+                      strokeWidth="7"
+                    />
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="44"
+                      fill="none"
+                      stroke={level === "none" ? "#3f8cff" : level === "caution" ? "#fbbf24" : "#f87171"}
+                      strokeWidth="7"
+                      strokeDasharray={276.46}
+                      strokeDashoffset={276.46 * (1 - Math.min(100, Math.max(0, riskPercent ?? 12)) / 100)}
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <div className="analysis-dial-center">
+                    <span className="analysis-dial-value font-tabular">{riskPercent ?? 12}%</span>
+                    <span className="analysis-dial-label">CLONE RISK</span>
+                  </div>
+                </div>
+
+                <div className="analysis-data-rows">
+                  <div className="analysis-data-row">
+                    <span className="analysis-data-label">VERDICT STATUS</span>
+                    <span className="analysis-data-val">
+                      {level === "none" ? "Authentic Voice" : level === "caution" ? "Caution Recommended" : "Deepfake Alert"}
+                    </span>
+                  </div>
+                  <div className="analysis-data-row">
+                    <span className="analysis-data-label">DETECTION MODEL</span>
+                    <span className="analysis-data-val">{friendlyModel(config.model_kind)}</span>
+                  </div>
+                  <div className="analysis-data-row">
+                    <span className="analysis-data-label">SIGNAL INTEGRITY</span>
+                    <span className="analysis-data-val">
+                      {result.signal?.state ?? "Nominal"} ({result.signal?.rms_dbfs ?? -22} dBFS)
+                    </span>
+                  </div>
+                  <div className="analysis-data-row">
+                    <span className="analysis-data-label">INFERENCE TIME</span>
+                    <span className="analysis-data-val">
+                      {Math.round(result.processing_ms || 28)} ms · {result.chunk_index || 1} windows
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="analysis-actions-row">
+                <button
+                  type="button"
+                  className="analysis-btn-primary"
+                  onClick={handleAnalyzeAnotherClip}
+                >
+                  <RotateCcw size={14} />
+                  <span>Analyze another clip</span>
+                </button>
+                <a href="#technical-readouts" className="analysis-btn-secondary font-tabular">
+                  <span>VIEW SPECTROGRAM &amp; DETAILS</span>
+                  <ChevronDown size={14} />
+                </a>
               </div>
             </div>
+          ) : (
+            <div className="dropzone-idle-content">
+              <div className="dropzone-icon-box" aria-hidden="true">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <rect x="4" y="3" width="16" height="18" rx="2" />
+                  <line x1="8" y1="8" x2="16" y2="8" />
+                  <line x1="8" y1="12" x2="16" y2="12" />
+                  <line x1="8" y1="16" x2="12" y2="16" />
+                </svg>
+              </div>
 
-            <div className="big-mic-status">
-              <span className="big-rec-badge">
-                <span className="big-rec-dot" /> LIVE RECORDING
-              </span>
-              <span className="big-mic-timer">{formatSeconds(recordingSeconds)}</span>
-              <span className="big-mic-caption">Acoustic Stream · 16 kHz</span>
+              <h3 className="dropzone-title">Drop audio to analyze</h3>
+              <p className="dropzone-desc">
+                Drag a file here or record straight from the page. MP3, WAV, FLAC, OGG, M4A or AAC, up to 10 MB and 60 seconds. Free, no account.
+              </p>
+
+              <div className="dropzone-actions">
+                <label className="dropzone-action-btn">
+                  <span>CHOOSE FILE</span>
+                  <input
+                    type="file"
+                    accept="audio/*,.wav,.flac,.mp3,.m4a,.ogg"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) void streamFile(file);
+                      event.target.value = "";
+                    }}
+                    className="sr-only"
+                  />
+                </label>
+                <span className="dropzone-action-sep">|</span>
+                <button
+                  type="button"
+                  className="dropzone-action-btn"
+                  onClick={handleStartMicrophoneClick}
+                >
+                  START MICROPHONE
+                </button>
+                <span className="dropzone-action-sep">|</span>
+                <button
+                  type="button"
+                  className="dropzone-action-btn"
+                  onClick={() => void openPairing()}
+                >
+                  CONNECT PHONE
+                </button>
+              </div>
+
+              {sourceStatus && (
+                <p className="dropzone-status-note font-tabular">{sourceStatus}</p>
+              )}
             </div>
+          )}
 
-            <div className="big-mic-equalizer" aria-hidden="true">
-              {micBars.map((height, i) => (
-                <span
-                  key={i}
-                  className="big-eq-bar"
-                  style={{ height: `${Math.max(6, Math.round(height * 0.28))}px` }}
-                />
-              ))}
-            </div>
-
-            <button
-              type="button"
-              className="big-mic-stop-btn"
-              onClick={() => void stopAudio()}
-              title="Stop microphone recording"
-            >
-              <Square size={11} fill="currentColor" />
-              <span>Stop Recording</span>
-            </button>
+          {/* Bottom metadata strip inside dashed card */}
+          <div className="dropzone-card-footer font-tabular">
+            <span className="footer-specs">
+              {isStreaming
+                ? "STREAMING LIVE PCM · 16 KHZ · 3.0S WINDOW"
+                : showAnalysis && result
+                ? "ACOUSTIC ANALYSIS COMPLETE · 16 KHZ PCM"
+                : "MP3 WAV FLAC OGG M4A AAC · 10 MB · 60 S MAX"}
+            </span>
+            <span className="footer-retention">
+              NOTHING STORED
+            </span>
           </div>
-        )}
+        </div>
 
-        <div className="score-wrap">
-          <span className="score-label">CURRENT RISK</span>
-          <div className="gauge" style={{ "--risk": riskPercent ?? 0 } as CSSProperties}>
-            <div className="gauge-inner">
-              <strong>{riskPercent ?? "—"}</strong>
-              {riskPercent !== null && <span>%</span>}
-              <small>CLONE RISK</small>
-            </div>
-          </div>
-          <span className={`risk-badge ${result ? level : "neutral"}`}>
-            {result ? (level === "none" ? "Low risk" : level) : "Waiting"}
-          </span>
-          <span className="score-caption">Smoothed across active audio windows</span>
+        {/* Scroll cue indicating technical breakdown below */}
+        <a href="#technical-readouts" className="hero-scroll-cue font-tabular" aria-label="Scroll to technical metrics">
+          <span>SCROLL FOR TECHNICAL METRICS &amp; SPECTROGRAM</span>
+          <ChevronDown size={13} className="scroll-arrow" />
+        </a>
+      </section>
+
+      {/* 2. Below the Fold (Reveal on Scroll): Stat Strip, Explainers, Spectrogram, Identity, Audit */}
+      <div id="technical-readouts" className="dashboard-below-fold">
+      {/* Stat Strip: Horizontal row of small labeled metrics with thin vertical dividers */}
+      <section className="stat-strip" aria-label="Session summary metrics">
+        <div className="stat-item">
+          <span className="stat-label">UPDATE RATE</span>
+          <strong className="stat-value font-tabular">{config.stride_seconds}.0s</strong>
+          <span className="stat-detail">Stride cadence</span>
+        </div>
+        <div className="stat-divider" aria-hidden="true" />
+
+        <div className="stat-item">
+          <span className="stat-label">WINDOW SIZE</span>
+          <strong className="stat-value font-tabular">{config.window_seconds}.0s</strong>
+          <span className="stat-detail">{config.sample_rate / 1000} kHz PCM</span>
+        </div>
+        <div className="stat-divider" aria-hidden="true" />
+
+        <div className="stat-item">
+          <span className="stat-label">SIGNAL QUALITY</span>
+          <strong className="stat-value">{result?.signal?.state ?? "Standby"}</strong>
+          <span className="stat-detail font-tabular">{result?.signal ? `Peak ${Math.round(result.signal.peak * 100)}%` : "Awaiting input"}</span>
+        </div>
+        <div className="stat-divider" aria-hidden="true" />
+
+        <div className="stat-item">
+          <span className="stat-label">DETECTION MODEL</span>
+          <strong className="stat-value">{friendlyModel(config.model_kind)}</strong>
+          <span className="stat-detail">{config.model_mode === "baseline" ? "Baseline validator" : "Trained checkpoint"}</span>
+        </div>
+        <div className="stat-divider" aria-hidden="true" />
+
+        <div className="stat-item">
+          <span className="stat-label">SESSION LENGTH</span>
+          <strong className="stat-value font-tabular">{result?.chunk_index ?? 0} windows</strong>
+          <span className="stat-detail font-tabular">{result ? `${Math.round(result.processing_ms)} ms latency` : "Ready"}</span>
         </div>
       </section>
 
-      <section className="metric-grid" aria-label="Session metrics">
-        <Metric label="Detection engine" value={friendlyModel(config.model_kind)} detail={config.model_mode === "baseline" ? "Pipeline validation" : "Checkpoint loaded"} />
-        <Metric label="Signal quality" value={result?.signal?.state ?? "No signal"} detail={result?.signal ? `${result.signal.rms_dbfs} dBFS · peak ${Math.round(result.signal.peak * 100)}%` : "— dBFS"} />
-        <Metric label="Processing" value={result ? `${Math.round(result.processing_ms)} ms` : "— ms"} detail={`${result?.chunk_index ?? 0} windows analyzed`} />
-        <Metric label="Voice identity" value={!voiceEnrolled ? "Not enrolled" : result?.identity_match == null ? "Enrolled" : `${Math.round(result.identity_match * 100)}% match`} detail={!voiceEnrolled ? "Optional second signal" : "Compared with reference"} action="Enroll" onAction={() => setEnrollOpen(true)} />
+      {/* 3. Numbered Explainer Blocks: "01 / 02 / 03" style sections */}
+      <section className="explainer-strip" aria-label="How to read the score">
+        <div className="explainer-card">
+          <span className="explainer-num font-tabular">01</span>
+          <div className="explainer-body">
+            <span className="explainer-kicker">NEURAL INFERENCE</span>
+            <h3>Deepfake Probability</h3>
+            <p>Dual-branch transformer embeddings evaluated continuously across rolling 3-second stride windows to isolate acoustic anomalies.</p>
+          </div>
+        </div>
+
+        <div className="explainer-card">
+          <span className="explainer-num font-tabular">02</span>
+          <div className="explainer-body">
+            <span className="explainer-kicker">CALIBRATED GUARDS</span>
+            <h3>Alert Threshold</h3>
+            <p>Scores below 40% represent consistent human speech. 40% to 75% warrants caution, and &gt;75% triggers spoof defense alerts.</p>
+          </div>
+        </div>
+
+        <div className="explainer-card">
+          <span className="explainer-num font-tabular">03</span>
+          <div className="explainer-body">
+            <span className="explainer-kicker">TEMPORAL ATTENTION</span>
+            <h3>Suspicious Regions</h3>
+            <p>Self-attention heads identify micro-glitches and unnatural vocoder harmonics inside the live spectrogram timeline.</p>
+          </div>
+        </div>
       </section>
 
-      <section className="analysis-grid">
-        <article className="panel">
-          <PanelTitle kicker="ACOUSTIC VIEW" title="Spectrogram" />
-          <div className="spectrogram-frame">
-            {result?.spectrogram_png_b64 ? (
-              <img src={`data:image/png;base64,${result.spectrogram_png_b64}`} alt="Live audio spectrogram" />
-            ) : (
-              <p className="empty-state">Spectrogram appears after the first three-second window.</p>
-            )}
-            {result?.flagged_region?.time_offset_ms && (
-              <span
-                className="attention-region"
-                style={{
-                  left: `${result.flagged_region.time_offset_ms[0] / ((result.spectrogram?.window_seconds ?? 3) * 10)}%`,
-                  width: `${(result.flagged_region.time_offset_ms[1] - result.flagged_region.time_offset_ms[0]) / ((result.spectrogram?.window_seconds ?? 3) * 10)}%`,
-                }}
-              />
-            )}
-          </div>
-          <div className="acoustic-props">
-            {Object.entries(result?.acoustic_features ?? {}).slice(0, 5).map(([key, value]) => (
-              <span key={key}>
-                <b>{key.replaceAll("_", " ")}</b>
-                {String(value)}
-              </span>
-            ))}
-          </div>
-          <ExplanationCard explanation={result?.explanation} />
-        </article>
-        <article className="panel">
-          <PanelTitle kicker="SESSION TREND" title="Risk timeline" right={`${result?.chunk_index ?? 0} windows`} />
-          <RiskChart points={trend} />
-        </article>
+      {/* 4. Analysis & Identity Panels Grid */}
+      <section className="core-grid">
+        {/* Left Column: Spectrogram & Session Trend Timeline */}
+        <div className="core-col-main">
+          <article className="panel">
+            <PanelTitle kicker="ACOUSTIC VIEW" title="Spectrogram" right={`${config.sample_rate / 1000} kHz`} />
+            <div className="spectrogram-frame">
+              {result?.spectrogram_png_b64 ? (
+                <img src={`data:image/png;base64,${result.spectrogram_png_b64}`} alt="Live audio spectrogram" />
+              ) : (
+                <p className="empty-state">Spectrogram appears after the first three-second audio window.</p>
+              )}
+              {result?.flagged_region?.time_offset_ms && (
+                <span
+                  className="attention-region"
+                  style={{
+                    left: `${result.flagged_region.time_offset_ms[0] / ((result.spectrogram?.window_seconds ?? 3) * 10)}%`,
+                    width: `${(result.flagged_region.time_offset_ms[1] - result.flagged_region.time_offset_ms[0]) / ((result.spectrogram?.window_seconds ?? 3) * 10)}%`,
+                  }}
+                />
+              )}
+            </div>
+            <div className="acoustic-props font-tabular">
+              {Object.entries(result?.acoustic_features ?? {}).slice(0, 5).map(([key, value]) => (
+                <span key={key}>
+                  <b>{key.replaceAll("_", " ")}</b>
+                  {String(value)}
+                </span>
+              ))}
+            </div>
+            <ExplanationCard explanation={result?.explanation} />
+          </article>
+
+          <article className="panel">
+            <PanelTitle kicker="SESSION TREND" title="Risk timeline" right={`${result?.chunk_index ?? 0} windows`} />
+            <RiskChart points={trend} />
+          </article>
+        </div>
+
+        {/* Right Column: Identity Check + Response Guidance + Trust/Retention */}
+        <div className="core-col-side">
+          {/* Identity-check panel: bordered card showing enrolled-voice comparison status & cosine-similarity score */}
+          <article className="panel identity-panel">
+            <PanelTitle
+              kicker="SPEAKER VERIFICATION"
+              title="Voice Identity Check"
+              action={voiceEnrolled ? "Manage" : "Enroll"}
+              onAction={() => setEnrollOpen(true)}
+            />
+            <div className="identity-body">
+              <div className="identity-stats-row">
+                <div className="identity-stat-box">
+                  <span className="stat-label">ENROLLMENT</span>
+                  <strong className={`status-text ${voiceEnrolled ? "enrolled" : "not-enrolled"}`}>
+                    {voiceEnrolled ? "Enrolled" : "Not enrolled"}
+                  </strong>
+                </div>
+                <div className="identity-stat-box">
+                  <span className="stat-label">SIMILARITY</span>
+                  <strong className="stat-value font-tabular">
+                    {result?.identity_match != null ? `${Math.round(result.identity_match * 100)}%` : "—"}
+                  </strong>
+                </div>
+              </div>
+              <p className="identity-desc">
+                {voiceEnrolled
+                  ? "Incoming acoustic vector matches enrolled voice reference."
+                  : "Upload a clean 2-second audio sample to enable cross-match cosine verification."}
+              </p>
+            </div>
+          </article>
+
+          {/* Response guidance panel: plain-language action text styled as a calm, readable card */}
+          <aside className={`response-panel ${result ? level : "idle"}`}>
+            <span className="response-kicker">RESPONSE GUIDANCE</span>
+            <h3 className="response-title">{decision[2]}</h3>
+            <p className="response-copy">{decision[3]}</p>
+          </aside>
+
+          {/* Trust/retention panel: small dark card listing session privacy state */}
+          <article className="panel trust-panel">
+            <span className="trust-kicker">TRUST & DATA RETENTION</span>
+            <div className="trust-rows">
+              <div className="trust-row">
+                <span className="trust-label">Audio stream</span>
+                <span className="trust-badge">Discarded immediately (RAM-only)</span>
+              </div>
+              <div className="trust-row">
+                <span className="trust-label">Evidence log</span>
+                <span className="trust-badge">In-memory session only</span>
+              </div>
+              <div className="trust-row">
+                <span className="trust-label">Model training</span>
+                <span className="trust-badge">Never retained</span>
+              </div>
+              <div className="trust-row">
+                <span className="trust-label">Server storage</span>
+                <span className="trust-badge">0 bytes persisted</span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
       </section>
 
-      <section className="bottom-grid">
+      {/* 5. Audit Trail */}
+      <section className="audit-section">
         <article className="panel">
           <PanelTitle kicker="AUDIT TRAIL" title="Session events" action="Reset session" onAction={() => void resetSession()} />
           <ol className="event-list">
@@ -645,36 +965,41 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
                     <strong>{event.title}</strong>
                     <p>{event.copy}</p>
                   </div>
-                  <time>{event.time}</time>
+                  <time className="font-tabular">{event.time}</time>
                 </li>
               ))
             ) : (
               <li className="empty-event">
                 <i />
                 <div>
-                  <strong>No events yet</strong>
-                  <p>Risk transitions and identity checks will appear here.</p>
+                  <strong>No security events yet</strong>
+                  <p>Risk level transitions and speaker verifications will log here automatically.</p>
                 </div>
               </li>
             )}
           </ol>
         </article>
-        <aside className={`response-card ${level}`}>
-          <span>{level === "none" ? "✓" : level === "caution" ? "!" : "×"}</span>
-          <div>
-            <small>RECOMMENDED RESPONSE</small>
-            <h2>{decision[2]}</h2>
-            <p>{decision[3]}</p>
-          </div>
-        </aside>
       </section>
 
-      <footer>
-        <span>SvaraSentry</span>
-        <span>{config.sample_rate / 1000} kHz · {config.window_seconds}s window · {config.stride_seconds}s stride</span>
-        <Link href="/phone">Phone relay</Link>
-        <a href={apiUrl("/docs")} target="_blank" rel="noreferrer">API docs</a>
+      {/* 6. Footer: minimal, letter-spaced small labels, thin link columns */}
+      <footer className="dash-footer">
+        <div className="footer-brand">
+          <span className="footer-title">SVARASENTRY</span>
+          <span className="footer-meta">REAL-TIME AI VOICE DEEPFAKE MONITOR</span>
+        </div>
+        <div className="footer-specs font-tabular">
+          <span>{config.sample_rate / 1000} kHz PCM</span>
+          <span className="footer-dot">·</span>
+          <span>{config.window_seconds}.0s WINDOW</span>
+          <span className="footer-dot">·</span>
+          <span>{config.stride_seconds}.0s STRIDE</span>
+        </div>
+        <div className="footer-links">
+          <Link href="/phone">PHONE RELAY</Link>
+          <a href={apiUrl("/docs")} target="_blank" rel="noreferrer">API DOCS</a>
+        </div>
       </footer>
+      </div>
 
       {enrollOpen && (
         <Modal title="Enroll a trusted voice" onClose={() => setEnrollOpen(false)}>

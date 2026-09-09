@@ -54,13 +54,13 @@ export default function HomePage() {
           zIndex: 9999,
           display: "flex",
           alignItems: "center",
-          backgroundColor: "rgba(10, 12, 22, 0.88)",
+          backgroundColor: "rgba(18, 18, 20, 0.88)",
           backdropFilter: "blur(18px)",
           WebkitBackdropFilter: "blur(18px)",
-          border: "1px solid rgba(255, 255, 255, 0.15)",
+          border: "1px solid rgba(255, 255, 255, 0.12)",
           padding: "5px",
           borderRadius: "9999px",
-          boxShadow: "0 20px 30px -5px rgba(0, 0, 0, 0.65), 0 0 15px rgba(63, 140, 255, 0.15)",
+          boxShadow: "0 20px 30px -5px rgba(0, 0, 0, 0.65)",
         }}
       >
         <button
@@ -73,9 +73,9 @@ export default function HomePage() {
             fontFamily: "monospace",
             fontWeight: 500,
             cursor: "pointer",
-            border: view === "landing" ? "1px solid rgba(255, 255, 255, 0.3)" : "1px solid transparent",
-            backgroundColor: view === "landing" ? "rgba(255, 255, 255, 0.18)" : "transparent",
-            color: view === "landing" ? "#ffffff" : "#A0A8C0",
+            border: view === "landing" ? "1px solid rgba(255, 255, 255, 0.28)" : "1px solid transparent",
+            backgroundColor: view === "landing" ? "rgba(255, 255, 255, 0.14)" : "transparent",
+            color: view === "landing" ? "#ffffff" : "#a1a1aa",
             transition: "all 0.2s",
           }}
         >
@@ -91,9 +91,9 @@ export default function HomePage() {
             fontFamily: "monospace",
             fontWeight: 500,
             cursor: "pointer",
-            border: view === "dashboard" ? "1px solid rgba(63, 140, 255, 0.5)" : "1px solid transparent",
-            backgroundColor: view === "dashboard" ? "rgba(63, 140, 255, 0.25)" : "transparent",
-            color: view === "dashboard" ? "#9ec5ff" : "#A0A8C0",
+            border: view === "dashboard" ? "1px solid rgba(255, 255, 255, 0.28)" : "1px solid transparent",
+            backgroundColor: view === "dashboard" ? "rgba(255, 255, 255, 0.14)" : "transparent",
+            color: view === "dashboard" ? "#ffffff" : "#a1a1aa",
             transition: "all 0.2s",
           }}
         >
@@ -102,7 +102,7 @@ export default function HomePage() {
       </nav>
 
       {view === "dashboard" ? (
-        <div className="pt-8">
+        <div className="w-full">
           <Dashboard onBackToLanding={goToLanding} />
         </div>
       ) : (
