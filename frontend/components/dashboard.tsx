@@ -950,7 +950,6 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
           </article>
         </div>
       </section>
-      </section>
 
       {/* 5. Audit Trail */}
       <section className="audit-section">
