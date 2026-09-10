@@ -4,6 +4,8 @@ export interface RuntimeConfig {
   sample_rate: number;
   window_seconds: number;
   stride_seconds: number;
+  caution_threshold?: number;
+  high_threshold?: number;
   model_kind: string;
   model_mode: string;
   baseline_disclaimer: boolean;
@@ -50,6 +52,7 @@ export interface AnalysisResult {
   type: "result";
   stream_id: string;
   chunk_index: number;
+  timestamp?: number;
   risk_score: number;
   smoothed_risk: number;
   alert_level: AlertLevel;

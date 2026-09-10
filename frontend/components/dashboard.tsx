@@ -9,12 +9,13 @@ import { Mic, Square } from "lucide-react";
 
 import { delay, downmix, floatToPcm16, resample } from "@/lib/audio";
 import { finishAudio, flushAudioProcessor } from "@/lib/finish-audio";
+import { ScoreLifecycle } from "@/lib/score-lifecycle";
+import { RiskTimeline } from "@/components/risk-timeline";
 import { apiUrl, publicUrl, requestJson, websocketUrl } from "@/lib/api";
 import type { AlertLevel, AnalysisResult, DashboardMessage, Explanation, FinalSessionSummary, RuntimeConfig } from "@/lib/types";
 import { WelcomeModal } from "@/components/WelcomeModal";
 
 type EventItem = { level: AlertLevel; title: string; copy: string; time: string };
-type TrendPoint = { raw: number; risk: number };
 
 export interface DashboardProps {
   onBackToLanding?: () => void;
@@ -72,7 +73,7 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
   const [sourceStatus, setSourceStatus] = useState("Audio stays in this session and is not saved by the server.");
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [finalSummary, setFinalSummary] = useState<FinalSessionSummary | null>(null);
-  const [trend, setTrend] = useState<TrendPoint[]>([]);
+  const [trend, setTrend] = useState<AnalysisResult[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [voiceEnrolled, setVoiceEnrolled] = useState(false);
   const [enrollOpen, setEnrollOpen] = useState(false);
@@ -82,6 +83,8 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
   const [isFinalizing, setIsFinalizing] = useState(false);
   const streamId = useRef<string | null>(null);
   const stopping = useRef<Promise<void> | null>(null);
+  const scores = useRef(new ScoreLifecycle());
+  const remoteStop = useRef<(() => void) | null>(null);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [modalStep, setModalStep] = useState(1);
 
@@ -142,16 +145,24 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
   }
 
   function recordResult(next: AnalysisResult) {
-    if (streamId.current && next.stream_id !== streamId.current) return;
+    if (!scores.current.result(next)) return;
     setResult(next);
     setVoiceEnrolled(next.voice_enrolled);
-    setTrend((current) => [...current.slice(-119), { raw: next.risk_score, risk: next.smoothed_risk }]);
+    setTrend([...scores.current.history]);
     if (lastLevel.current !== next.alert_level) {
       const [, copy] = decisions[next.alert_level];
       const title = next.alert_level === "none" ? "Low risk" : next.alert_level === "caution" ? "Caution" : "High risk";
       setEvents((current) => [{ level: next.alert_level, title, copy, time: Clock() }, ...current].slice(0, 30));
       lastLevel.current = next.alert_level;
     }
+  }
+
+  function acceptFinal(summary: FinalSessionSummary) {
+    if (!scores.current.finish(summary)) return;
+    if (scores.current.latest) setResult(scores.current.latest);
+    setTrend([...scores.current.history]);
+    setFinalSummary(summary);
+    setIsFinalizing(false);
   }
 
   useEffect(() => {
@@ -166,29 +177,35 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
         socket.send("ping");
       };
       socket.onmessage = ({ data }) => {
+        if (cancelled || monitorSocket.current !== socket) return;
         const message = JSON.parse(data) as DashboardMessage;
         if (message.type === "result") recordResult(message as AnalysisResult);
         if (message.type === "session_summary" && message.stream_id === streamId.current) {
-          setFinalSummary(message as FinalSessionSummary);
-          setIsFinalizing(false);
+          acceptFinal(message as FinalSessionSummary);
         }
         if (message.type === "source" && message.connected) {
-          streamId.current = message.stream_id ?? null;
-          resetDisplay();
+          if (message.stream_id && scores.current.begin(message.stream_id)) {
+            streamId.current = message.stream_id;
+            resetDisplay();
+          }
         }
         if (message.type === "snapshot") {
-          streamId.current = message.stream_id ?? null;
+          if (message.stream_id && scores.current.begin(message.stream_id)) {
+            streamId.current = message.stream_id;
+            resetDisplay();
+          }
           setVoiceEnrolled(Boolean(message.voice_enrolled));
           if (message.latest) recordResult(message.latest);
-          setFinalSummary(message.final_summary ?? null);
+          if (message.final_summary) acceptFinal(message.final_summary);
         }
         if (message.type === "source" && message.connected === false && message.stream_id === streamId.current) {
+          remoteStop.current?.();
           setIsFinalizing(false);
           setSourceStatus(message.completed
             ? (message.window_count ? "Analysis complete · final average ready." : "No complete three-second windows were recorded.")
             : "Audio disconnected · summary covers completed windows only.");
         }
-        if (message.type === "source" && message.connected === false && activeSourceRef.current === "phone") {
+        if (message.type === "source" && message.connected === false && message.stream_id === streamId.current && activeSourceRef.current === "phone") {
           activeSourceRef.current = null;
           setActiveSource(null);
           setIsStreaming(false);
@@ -224,10 +241,24 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
   async function stopAudio(updateStatus = true) {
     if (stopping.current) return stopping.current;
     if (activeSourceRef.current === "phone") {
+      scores.current.stop();
       setIsFinalizing(true);
       setSourceStatus("Stopping phone audio and finishing analysis…");
-      monitorSocket.current?.send("stop_audio");
-      return;
+      const pending = new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error("Phone stop was not confirmed. Stop the relay on the phone before starting another session.")), 60_000);
+        remoteStop.current = () => { clearTimeout(timer); resolve(); };
+        if (monitorSocket.current?.readyState === WebSocket.OPEN) monitorSocket.current.send("stop_audio");
+        else { clearTimeout(timer); reject(new Error("Dashboard disconnected; stop the relay on the phone.")); }
+      }).catch((error: Error) => {
+        setSourceStatus(error.message);
+        throw error;
+      }).finally(() => {
+        remoteStop.current = null;
+        stopping.current = null;
+        setIsFinalizing(false);
+      });
+      stopping.current = pending;
+      return pending;
     }
     const activeSocket = audioSocket.current;
     const activeProcessor = processor.current;
@@ -251,13 +282,14 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
       return;
     }
     setIsFinalizing(true);
+    scores.current.stop();
     if (updateStatus) setSourceStatus("Finishing all queued audio windows…");
     const pending = (async () => {
       try {
         // Flush the worklet's final partial PCM frame before the ordered end marker.
         if (activeProcessor) await flushAudioProcessor(activeProcessor);
         const summary = await finishAudio(activeSocket);
-        if (summary && summary.stream_id === streamId.current) setFinalSummary(summary);
+        if (summary) acceptFinal(summary);
         setSourceStatus(summary ? "Analysis complete · final average ready." : "No complete three-second windows were recorded.");
       } catch (error) {
         setSourceStatus(error instanceof Error ? error.message : "Could not confirm the final result.");
@@ -386,6 +418,7 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
 
   async function changeSession() {
     const next = sessionInput.trim() || "demo-1";
+    if (next === sessionId) return;
     await stopAudio(false);
     resetDisplay();
     setSessionId(next);
@@ -636,7 +669,7 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
         )}
 
         <div className="score-wrap">
-          <span className="score-label">{finalSummary ? (finalSummary.completed ? "FINAL AVERAGE RISK" : "PARTIAL AVERAGE RISK") : "CURRENT RISK"}</span>
+          <span className="score-label">{finalSummary ? (finalSummary.completed ? "FINAL AVERAGE RISK" : "PARTIAL AVERAGE RISK") : isFinalizing ? "FINALIZING ANALYSIS" : "CURRENT RISK"}</span>
           <div className="gauge" style={{ "--risk": riskPercent ?? 0 } as CSSProperties}>
             <div className="gauge-inner">
               <strong>{riskPercent ?? "—"}</strong>
@@ -645,12 +678,13 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
             </div>
           </div>
           <span className={`risk-badge ${hasScore ? level : "neutral"}`}>
-            {hasScore ? (level === "none" ? "Low risk" : level) : "Waiting"}
+            {isFinalizing ? "Finalizing" : hasScore ? (level === "none" ? "Low risk" : level) : "Waiting"}
           </span>
           <span className="score-caption">
             {finalSummary
               ? `Average of ${finalSummary.window_count} windows · peak ${Math.round(finalSummary.maximum_risk * 100)}% · ${Math.round(finalSummary.high_risk_fraction * 100)}% high-risk`
-              : "Recent-window smoothing while audio is active"}
+              : isFinalizing ? "Capture stopped. Holding the last displayed score while queued windows finish; the final average will appear once confirmed."
+                : "Recent-window smoothing while audio is active"}
           </span>
         </div>
       </section>
@@ -661,6 +695,16 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
         <Metric label="Processing" value={result ? `${Math.round(result.processing_ms)} ms` : "— ms"} detail={`${finalSummary?.window_count ?? result?.chunk_index ?? 0} windows analyzed`} />
         <Metric label="Voice identity" value={!voiceEnrolled ? "Not enrolled" : result?.identity_match == null ? "Enrolled" : `${Math.round(result.identity_match * 100)}% match`} detail={!voiceEnrolled ? "Optional second signal" : "Compared with reference"} action="Enroll" onAction={() => setEnrollOpen(true)} />
       </section>
+
+      <p className="score-caption" role="note">
+        Recording conditions matter: keep a steady microphone distance and avoid loud background audio.
+        This prototype can mistake recording-level or acoustic changes for spoofing; the displayed score is not a calibrated certainty that a voice is fake.
+        {result?.signal && (result.signal.peak >= 0.98
+          ? " Input is near clipping: reduce input gain or move slightly farther from the microphone."
+          : result.signal.rms_dbfs < -40
+            ? " Input is very quiet: check microphone placement and record a clearer sample."
+            : " A usable signal level does not guarantee a reliable classification.")}
+      </p>
 
       <section className="analysis-grid">
         <article className="panel">
@@ -694,7 +738,7 @@ export function Dashboard({ onBackToLanding }: DashboardProps = {}) {
         </article>
         <article className="panel">
           <PanelTitle kicker="SESSION TREND" title="Risk timeline" right={`${result?.chunk_index ?? 0} windows`} />
-          <RiskChart points={trend} />
+          <RiskTimeline key={result?.stream_id ?? sessionId} points={trend} config={config} finalSummary={finalSummary} finalizing={isFinalizing} />
         </article>
       </section>
 
@@ -860,41 +904,6 @@ function ExplanationCard({ explanation }: { explanation?: Explanation }) {
       <p className="explanation-limit">{explanation.limits[0]}</p>
       <strong className="explanation-action">{explanation.recommended_action}</strong>
     </section>
-  );
-}
-
-function RiskChart({ points }: { points: TrendPoint[] }) {
-  if (points.length < 2) {
-    const barHeights = [20, 24, 18, 26, 22, 19, 25, 28, 21, 17, 23, 27, 20, 24, 29, 22, 18, 25, 23, 21, 26, 30, 25, 28, 34, 46, 58, 68, 62, 48, 38, 30, 26, 22, 25, 19, 24, 22, 18, 21];
-    return (
-      <div className="timeline-empty">
-        <div className="ws-bars" aria-hidden="true">
-          {barHeights.map((h, i) => (
-            <div
-              key={i}
-              className={`ws-bar ${h > 50 ? "ws-bar-red" : "ws-bar-blue"}`}
-              style={{ height: `${h}%`, animationDelay: `${i * 0.045}s` }}
-            />
-          ))}
-        </div>
-        <p className="ws-copy">Awaiting session telemetry &amp; risk analysis stream…</p>
-      </div>
-    );
-  }
-  const path = points.map((point, index) => `${index ? "L" : "M"}${(index / (points.length - 1)) * 100},${100 - point.risk * 100}`).join(" ");
-  return (
-    <svg className="risk-chart" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="Risk score timeline">
-      <defs>
-        <linearGradient id="riskLineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="var(--accent-safe)" />
-          <stop offset="65%" stopColor="var(--accent-caution)" />
-          <stop offset="100%" stopColor="var(--accent-high)" />
-        </linearGradient>
-      </defs>
-      <line x1="0" x2="100" y1="25" y2="25" />
-      <line x1="0" x2="100" y1="45" y2="45" />
-      <path d={path} stroke="url(#riskLineGrad)" />
-    </svg>
   );
 }
 

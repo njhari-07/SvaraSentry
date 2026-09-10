@@ -27,6 +27,7 @@ export function PhoneRelay() {
   const started = useRef<number | null>(null);
   const attempts = useRef(0);
   const shouldReconnect = useRef(false);
+  const stopInProgress = useRef(false);
 
   const usable = Boolean(token) && (window.isSecureContext || window.location.hostname === "localhost");
 
@@ -83,6 +84,7 @@ export function PhoneRelay() {
       setState("reconnecting");
       setCopy(`Reconnecting (${attempts.current}/5)…`);
       window.setTimeout(() => {
+        if (!shouldReconnect.current) return;
         void connect().catch(() => {
           // onclose schedules the next bounded reconnect attempt.
         });
@@ -101,6 +103,7 @@ export function PhoneRelay() {
 
   async function start() {
     if (!usable || !token) return;
+    stopInProgress.current = false;
     try {
       setState("requesting");
       setCopy("Allow microphone access to start the relay.");
@@ -137,6 +140,8 @@ export function PhoneRelay() {
   }
 
   async function stop() {
+    if (stopInProgress.current) return;
+    stopInProgress.current = true;
     shouldReconnect.current = false;
     setState("stopping");
     setCopy("Microphone stopped. Finishing queued audio analysis…");
